@@ -1,0 +1,170 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+:root,
+[data-theme='light'] {
+  --page-bg: #f7f5f0;
+  --card-bg: #ffffff;
+  --modal-bg: #ffffff;
+  --card-border: #e6e1d6;
+  --row-bg: #f1ede3;
+  --row-hover-bg: #eae4d6;
+  --sidebar-bg: #fbf9f4;
+  --text-primary: #1c1917;
+  --text-secondary: #57534e;
+  --text-muted: #8a8478;
+  --accent-blue: #1d3557;
+  --accent-maroon-text: #7a1f2b;
+  --accent-maroon-soft: rgba(122, 31, 43, 0.12);
+}
+
+[data-theme='dark'] {
+  --page-bg: #15130f;
+  --card-bg: #1e1c17;
+  --modal-bg: #211f1a;
+  --card-border: #33302a;
+  --row-bg: #26241f;
+  --row-hover-bg: #2c2a24;
+  --sidebar-bg: #100f0c;
+  --text-primary: #f2ede1;
+  --text-secondary: #c9c2b0;
+  --text-muted: #8f8a7c;
+  --accent-blue: #4a6fa1;
+  --accent-maroon-text: #dd939b;
+  --accent-maroon-soft: rgba(221, 147, 155, 0.16);
+}
+
+:root {
+  --accent-maroon: #7a1f2b;
+  --status-pending: #f59e0b;
+  --status-approved: #1d3557;
+  --status-revisi: #fb7185;
+  --status-success: #14532d;
+  --kop-fs: #1d3557;
+  --kop-povi: #14532d;
+  --surat-lain: #92400e;
+}
+
+body {
+  background: var(--page-bg);
+  color: var(--text-primary);
+  font-family: 'Public Sans', system-ui, sans-serif;
+  transition: background 0.4s ease, color 0.4s ease;
+}
+
+@layer components {
+  .btn-primary {
+    @apply px-4 py-2.5 rounded-xl font-bold text-sm text-white transition-transform duration-200;
+    background: var(--accent-maroon);
+  }
+  .btn-primary:hover {
+    transform: translateY(-2px);
+  }
+
+  .btn-outline {
+    @apply px-4 py-2.5 rounded-xl font-bold text-sm border transition-opacity duration-200;
+    border-color: var(--card-border);
+    color: var(--text-primary);
+    background: var(--card-bg);
+  }
+  .btn-outline:hover {
+    opacity: 0.85;
+  }
+
+  .card {
+    @apply rounded-[20px] border p-5;
+    background: var(--card-bg);
+    border-color: var(--card-border);
+  }
+
+  .input-field {
+    @apply w-full px-3.5 py-2.5 rounded-xl border text-sm outline-none;
+    background: var(--row-bg);
+    border-color: var(--card-border);
+    color: var(--text-primary);
+  }
+  .input-field:focus {
+    border-color: var(--accent-maroon);
+  }
+  .input-field.input-filled {
+    border-color: #22c55e;
+    box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.16);
+  }
+
+  .page-container {
+    @apply px-6 py-7;
+  }
+
+  .pill {
+    @apply px-3.5 py-2 rounded-xl border text-sm font-semibold transition-colors duration-200;
+    border-color: var(--card-border);
+    background: var(--row-bg);
+    color: var(--text-secondary);
+  }
+  .pill-active {
+    border-color: var(--accent-maroon);
+    background: var(--accent-maroon-soft);
+    color: var(--accent-maroon-text);
+  }
+
+  .request-card {
+    @apply rounded-[20px] border cursor-pointer;
+    background: var(--card-bg);
+    border-color: var(--card-border);
+    transition: transform 0.22s ease, border-color 0.22s ease, box-shadow 0.22s ease;
+  }
+  .request-card:hover {
+    transform: translateY(-3px);
+    border-color: var(--accent-maroon);
+    box-shadow: 0 10px 24px rgba(122, 31, 43, 0.16);
+  }
+
+  .stat-card {
+    @apply rounded-[20px] border p-5;
+    background: var(--card-bg);
+    border-color: var(--card-border);
+    transition: transform 0.2s ease, border-color 0.2s ease, background 0.2s ease;
+  }
+
+  .table-row-hover:hover {
+    background: var(--accent-maroon-soft);
+    box-shadow: inset 3px 0 0 var(--accent-maroon);
+  }
+}
+
+@keyframes shimmer {
+  0% { background-position: -400px 0; }
+  100% { background-position: 400px 0; }
+}
+.skeleton {
+  background-image: linear-gradient(90deg, var(--row-bg) 0%, var(--row-hover-bg) 50%, var(--row-bg) 100%);
+  background-size: 800px 100%;
+  animation: shimmer 1.6s linear infinite;
+}
+
+@keyframes toastIn {
+  from { opacity: 0; transform: translateY(-8px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+.toast-in {
+  animation: toastIn 0.25s ease;
+}
+
+@keyframes modalIn {
+  from { opacity: 0; transform: translateY(12px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+.modal-in {
+  animation: modalIn 0.2s ease;
+}
