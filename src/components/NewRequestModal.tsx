@@ -62,12 +62,15 @@ function formatRupiah(input: string): string {
   return 'Rp ' + Number(digits).toLocaleString('id-ID')
 }
 
-// Groups consecutive fields marked `compact` into a single row, others stay full-width.
+// Groups consecutive fields marked `compact` into rows of up to 3 (e.g. Hari/Tanggal/Waktu
+// triplets), others stay full-width. Capped at 3 so back-to-back triplets (like the four
+// Loading In/Exhibition/Loading Out rows in Permohonan Penyelenggaraan) don't merge into one row.
+const MAX_COMPACT_GROUP = 3
 function groupFields(fields: FormField[]): FormField[][] {
   const groups: FormField[][] = []
   fields.forEach((field) => {
     const lastGroup = groups[groups.length - 1]
-    if (field.compact && lastGroup && lastGroup[0].compact) {
+    if (field.compact && lastGroup && lastGroup[0].compact && lastGroup.length < MAX_COMPACT_GROUP) {
       lastGroup.push(field)
     } else {
       groups.push([field])
@@ -223,6 +226,7 @@ export function NewRequestModal({ onClose, onSuccess, resubmit }: NewRequestModa
             pic_phone: picPhone,
             placeholders: formData,
             due_date: deadline,
+            table_data: selected.has_repeatable_table ? tableRows : null,
           },
         })
         if (fnError) throw new Error(await getFunctionErrorMessage(fnError, 'Gagal membuat surat.'))
