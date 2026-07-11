@@ -9,11 +9,15 @@ lerna-debug.log*
 
 node_modules
 .DS_Store
+._*
 dist
 dist-ssr
 *.local
 .env
 .env.local
+
+# Supabase CLI local link/cache state
+supabase/.temp/
 
 # Editor directories and files
 .vscode/*
