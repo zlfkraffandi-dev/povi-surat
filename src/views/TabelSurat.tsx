@@ -7,6 +7,7 @@ import { WhatsAppBadge } from '../components/WhatsAppBadge'
 
 interface TabelSuratProps {
   requests: LetterRequestRow[]
+  loading?: boolean
   onApprove: (row: LetterRequestRow) => void
   onRevisi: (id: string) => void
   onOpenDetail: (id: string) => void
@@ -15,7 +16,7 @@ interface TabelSuratProps {
 
 const GRID = '0.95fr 1.05fr 0.35fr 0.9fr 0.65fr 0.85fr 0.85fr 0.75fr 0.85fr 0.75fr'
 
-export function TabelSurat({ requests, onApprove, onRevisi, onOpenDetail, busyId }: TabelSuratProps) {
+export function TabelSurat({ requests, loading, onApprove, onRevisi, onOpenDetail, busyId }: TabelSuratProps) {
   const [search, setSearch] = useState('')
 
   let rows = requests
@@ -44,7 +45,10 @@ export function TabelSurat({ requests, onApprove, onRevisi, onOpenDetail, busyId
 
       {/* Mobile: card list */}
       <div className="space-y-3 md:hidden">
-        {enriched.map((r) => (
+        {loading && [0, 1, 2].map((i) => (
+          <div key={i} className="skeleton" style={{ height: 164, borderRadius: 20 }} />
+        ))}
+        {!loading && enriched.map((r) => (
           <div
             key={r.id}
             onClick={() => onOpenDetail(r.id)}
@@ -107,7 +111,7 @@ export function TabelSurat({ requests, onApprove, onRevisi, onOpenDetail, busyId
           </div>
         ))}
 
-        {enriched.length === 0 && (
+        {!loading && enriched.length === 0 && (
           <p className="text-center py-12 text-sm" style={{ color: 'var(--text-muted)' }}>
             Tidak ada request yang cocok dengan pencarian ini.
           </p>
@@ -126,7 +130,12 @@ export function TabelSurat({ requests, onApprove, onRevisi, onOpenDetail, busyId
             ))}
           </div>
 
-          {enriched.map((r) => (
+          {loading && [0, 1, 2, 3].map((i) => (
+            <div key={i} className="px-5 py-3.5 border-b last:border-0" style={{ borderColor: 'var(--card-border)' }}>
+              <div className="skeleton" style={{ height: 20, borderRadius: 8 }} />
+            </div>
+          ))}
+          {!loading && enriched.map((r) => (
             <div
               key={r.id}
               className="table-row-hover grid px-5 py-3.5 items-center border-b last:border-0 cursor-pointer transition-colors"
@@ -176,7 +185,7 @@ export function TabelSurat({ requests, onApprove, onRevisi, onOpenDetail, busyId
           ))}
         </div>
 
-        {enriched.length === 0 && (
+        {!loading && enriched.length === 0 && (
           <p className="text-center py-12 text-sm" style={{ color: 'var(--text-muted)' }}>
             Tidak ada request yang cocok dengan pencarian ini.
           </p>

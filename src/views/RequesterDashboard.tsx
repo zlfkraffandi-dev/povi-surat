@@ -28,6 +28,7 @@ export function RequesterDashboardContent({ profile }: { profile: UserProfile })
   const { pushToast } = useToast()
   const [requests, setRequests] = useState<LetterRequestRow[]>([])
   const [drafts, setDrafts] = useState<SuratLainDraft[]>([])
+  const [loading, setLoading] = useState(true)
   const [filterStatus, setFilterStatus] = useState('all')
   const [search, setSearch] = useState('')
   const [showModal, setShowModal] = useState(false)
@@ -35,19 +36,21 @@ export function RequesterDashboardContent({ profile }: { profile: UserProfile })
   const [detailId, setDetailId] = useState<string | null>(null)
 
   const load = () => {
-    supabase
-      .from('letter_requests')
-      .select('*, letter_templates(*)')
-      .eq('requester_id', profile.id)
-      .order('created_at', { ascending: false })
-      .then(({ data }) => setRequests((data as any) || []))
-
-    supabase
-      .from('surat_lain_requests')
-      .select('id, hal, nama_kegiatan, created_at')
-      .eq('requester_id', profile.id)
-      .order('created_at', { ascending: false })
-      .then(({ data }) => setDrafts((data as any) || []))
+    setLoading(true)
+    Promise.all([
+      supabase
+        .from('letter_requests')
+        .select('*, letter_templates(*)')
+        .eq('requester_id', profile.id)
+        .order('created_at', { ascending: false })
+        .then(({ data }) => setRequests((data as any) || [])),
+      supabase
+        .from('surat_lain_requests')
+        .select('id, hal, nama_kegiatan, created_at')
+        .eq('requester_id', profile.id)
+        .order('created_at', { ascending: false })
+        .then(({ data }) => setDrafts((data as any) || [])),
+    ]).finally(() => setLoading(false))
   }
 
   useEffect(load, [profile.id])
@@ -123,7 +126,13 @@ export function RequesterDashboardContent({ profile }: { profile: UserProfile })
         </div>
       </div>
 
-      {isEmpty ? (
+      {loading ? (
+        <div className="space-y-3">
+          {[0, 1, 2].map((i) => (
+            <div key={i} className="skeleton" style={{ height: 92, borderRadius: 20 }} />
+          ))}
+        </div>
+      ) : isEmpty ? (
         <div className="rounded-3xl border-2 border-dashed p-16 text-center" style={{ borderColor: 'var(--card-border)' }}>
           <Folder size={40} className="mx-auto mb-4" style={{ color: 'var(--text-muted)' }} />
           <h3 className="text-[15.5px] font-bold mb-1" style={{ color: 'var(--text-primary)' }}>Belum ada request</h3>

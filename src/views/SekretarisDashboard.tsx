@@ -24,6 +24,7 @@ const FILTERS = [
 export function SekretarisDashboard({ profile }: { profile: UserProfile }) {
   const [tab, setTab] = useState<'dashboard' | 'monitoring' | 'table'>('dashboard')
   const [requests, setRequests] = useState<LetterRequestRow[]>([])
+  const [loading, setLoading] = useState(true)
   const [filterStatus, setFilterStatus] = useState('all')
   const [search, setSearch] = useState('')
   const [notifOpen, setNotifOpen] = useState(false)
@@ -34,11 +35,13 @@ export function SekretarisDashboard({ profile }: { profile: UserProfile }) {
   const [result, setResult] = useState<{ type: 'success' | 'error'; title: string; message: string } | null>(null)
 
   const load = () => {
+    setLoading(true)
     supabase
       .from('letter_requests')
       .select('*, letter_templates(*), users(name)')
       .order('created_at', { ascending: false })
       .then(({ data }) => setRequests((data as any) || []))
+      .finally(() => setLoading(false))
   }
 
   useEffect(load, [tab])
@@ -200,7 +203,13 @@ export function SekretarisDashboard({ profile }: { profile: UserProfile }) {
             </div>
           </div>
 
-          {enriched.length === 0 ? (
+          {loading ? (
+            <div className="space-y-3">
+              {[0, 1, 2, 3].map((i) => (
+                <div key={i} className="skeleton" style={{ height: 92, borderRadius: 20 }} />
+              ))}
+            </div>
+          ) : enriched.length === 0 ? (
             <div className="rounded-3xl border-2 border-dashed p-16 text-center" style={{ borderColor: 'var(--card-border)' }}>
               <Inbox size={40} className="mx-auto mb-4" style={{ color: 'var(--text-muted)' }} />
               <h3 className="text-[15.5px] font-bold" style={{ color: 'var(--text-primary)' }}>Tidak ada request</h3>
@@ -271,7 +280,7 @@ export function SekretarisDashboard({ profile }: { profile: UserProfile }) {
           )}
         </div>
       ) : (
-        <TabelSurat requests={requests} onApprove={handleApprove} onRevisi={(id) => setRevisiTargetId(id)} onOpenDetail={setDetailId} busyId={busyId} />
+        <TabelSurat requests={requests} loading={loading} onApprove={handleApprove} onRevisi={(id) => setRevisiTargetId(id)} onOpenDetail={setDetailId} busyId={busyId} />
       )}
 
       {revisiTargetId && (
