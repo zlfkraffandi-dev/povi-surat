@@ -111,6 +111,14 @@ function groupFields(fields: FormField[]): FormField[][] {
   return groups
 }
 
+// Splits a "Section: Field" label into its section heading and short field label; labels
+// without a colon (most templates) are left untouched with no section heading.
+function splitLabel(label: string): { section: string | null; short: string } {
+  const idx = label.indexOf(': ')
+  if (idx === -1) return { section: null, short: label }
+  return { section: label.slice(0, idx), short: label.slice(idx + 2) }
+}
+
 function timeToMinutes(value: string): number | null {
   if (!value) return null
   const [h, m] = value.split(':').map(Number)
@@ -380,46 +388,59 @@ export function NewRequestModal({ onClose, onSuccess, resubmit }: NewRequestModa
 
           {selected && (
             <div className="space-y-4">
-              {groupFields(selected.form_schema).map((group, gi) => (
-                <div key={gi} className={group[0].compact ? 'flex gap-3' : ''}>
-                  {group.map((field) => {
-                    const value = formData[field.key] || ''
-                    const filled = value.trim().length > 0
-                    const glowClass = filled ? 'input-filled' : ''
-                    return (
-                      <div key={field.key} className={group[0].compact ? 'flex-1' : ''}>
-                        <label className="block text-sm font-semibold mb-2" style={{ color: 'var(--text-secondary)' }}>{field.label}</label>
-                        {field.type === 'textarea' ? (
-                          <textarea
-                            value={value}
-                            onChange={(e) => setFormData((p) => ({ ...p, [field.key]: e.target.value }))}
-                            rows={3}
-                            className={`input-field ${glowClass}`}
-                            placeholder={field.placeholder}
-                          />
-                        ) : field.type === 'number' ? (
-                          <input
-                            type="text"
-                            inputMode="numeric"
-                            value={value}
-                            onChange={(e) => setFormData((p) => ({ ...p, [field.key]: formatRupiah(e.target.value) }))}
-                            className={`input-field ${glowClass}`}
-                            placeholder={field.placeholder ? `Rp ${field.placeholder.replace(/\D/g, '')}` : 'Rp 0'}
-                          />
-                        ) : (
-                          <input
-                            type={field.type}
-                            value={value}
-                            onChange={(e) => setFormData((p) => ({ ...p, [field.key]: e.target.value }))}
-                            className={`input-field ${glowClass}`}
-                            placeholder={field.placeholder}
-                          />
-                        )}
+              {(() => {
+                let prevSection: string | null = null
+                return groupFields(selected.form_schema).map((group, gi) => {
+                  const section = splitLabel(group[0].label).section
+                  const showHeading = section !== null && section !== prevSection
+                  prevSection = section
+                  return (
+                    <div key={gi} className={showHeading ? 'pt-2' : ''}>
+                      {showHeading && (
+                        <h4 className="text-sm font-bold mb-2" style={{ color: 'var(--text-primary)' }}>{section}</h4>
+                      )}
+                      <div className={group[0].compact ? 'flex gap-3' : ''}>
+                        {group.map((field) => {
+                          const value = formData[field.key] || ''
+                          const filled = value.trim().length > 0
+                          const glowClass = filled ? 'input-filled' : ''
+                          return (
+                            <div key={field.key} className={group[0].compact ? 'flex-1' : ''}>
+                              <label className="block text-sm font-semibold mb-2" style={{ color: 'var(--text-secondary)' }}>{splitLabel(field.label).short}</label>
+                              {field.type === 'textarea' ? (
+                                <textarea
+                                  value={value}
+                                  onChange={(e) => setFormData((p) => ({ ...p, [field.key]: e.target.value }))}
+                                  rows={3}
+                                  className={`input-field ${glowClass}`}
+                                  placeholder={field.placeholder}
+                                />
+                              ) : field.type === 'number' ? (
+                                <input
+                                  type="text"
+                                  inputMode="numeric"
+                                  value={value}
+                                  onChange={(e) => setFormData((p) => ({ ...p, [field.key]: formatRupiah(e.target.value) }))}
+                                  className={`input-field ${glowClass}`}
+                                  placeholder={field.placeholder ? `Rp ${field.placeholder.replace(/\D/g, '')}` : 'Rp 0'}
+                                />
+                              ) : (
+                                <input
+                                  type={field.type}
+                                  value={value}
+                                  onChange={(e) => setFormData((p) => ({ ...p, [field.key]: e.target.value }))}
+                                  className={`input-field ${glowClass}`}
+                                  placeholder={field.placeholder}
+                                />
+                              )}
+                            </div>
+                          )
+                        })}
                       </div>
-                    )
-                  })}
-                </div>
-              ))}
+                    </div>
+                  )
+                })
+              })()}
 
               {selected.has_repeatable_table && selected.repeatable_table_config && (
                 <div className="space-y-2">
