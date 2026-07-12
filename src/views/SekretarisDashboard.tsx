@@ -28,6 +28,13 @@ export function SekretarisDashboard({ profile }: { profile: UserProfile }) {
   const [filterStatus, setFilterStatus] = useState('all')
   const [search, setSearch] = useState('')
   const [notifOpen, setNotifOpen] = useState(false)
+  const [seenNotifIds, setSeenNotifIds] = useState<string[]>(() => {
+    try {
+      return JSON.parse(localStorage.getItem(`notif_seen_${profile.id}`) || '[]')
+    } catch {
+      return []
+    }
+  })
   const [detailId, setDetailId] = useState<string | null>(null)
   const [revisiTargetId, setRevisiTargetId] = useState<string | null>(null)
   const [busyId, setBusyId] = useState<string | null>(null)
@@ -47,6 +54,7 @@ export function SekretarisDashboard({ profile }: { profile: UserProfile }) {
   useEffect(load, [tab])
 
   const perluReview = requests.filter((r) => r.status === 'pending').length
+  const unseenCount = requests.filter((r) => r.status === 'pending' && !seenNotifIds.includes(r.id)).length
   const deadlineMendesak = requests.filter((r) => (r.status === 'pending' || r.status === 'revisi') && daysUntil(r.needed_by_date) <= 2).length
   const todayStr = new Date().toISOString().slice(0, 10)
   const approvedHariIni = requests.filter((r) => r.status === 'approved' && r.tanggal_surat === todayStr).length
@@ -118,20 +126,32 @@ export function SekretarisDashboard({ profile }: { profile: UserProfile }) {
     { label: 'Tabel Surat', icon: Table2, active: tab === 'table', onClick: () => setTab('table') },
   ]
 
+  const markNotifsSeen = () => {
+    const ids = Array.from(new Set([...seenNotifIds, ...pendingRecent.map((r) => r.id)]))
+    setSeenNotifIds(ids)
+    try {
+      localStorage.setItem(`notif_seen_${profile.id}`, JSON.stringify(ids))
+    } catch {}
+  }
+
   const notifButton = (
     <div className="relative">
       <button
-        onClick={() => setNotifOpen((v) => !v)}
+        onClick={() => {
+          const next = !notifOpen
+          setNotifOpen(next)
+          if (next) markNotifsSeen()
+        }}
         className="w-[38px] h-[38px] rounded-xl border flex items-center justify-center relative"
         style={{ borderColor: 'var(--card-border)', background: 'var(--card-bg)', color: 'var(--text-secondary)' }}
       >
         <Bell size={18} />
-        {perluReview > 0 && (
+        {unseenCount > 0 && (
           <span
             className="absolute -top-1 -right-1 w-4 h-4 rounded-full text-[9px] font-bold text-white flex items-center justify-center"
             style={{ background: '#f43f5e' }}
           >
-            {perluReview}
+            {unseenCount}
           </span>
         )}
       </button>
@@ -143,17 +163,32 @@ export function SekretarisDashboard({ profile }: { profile: UserProfile }) {
           {pendingRecent.length === 0 ? (
             <p className="p-4 text-sm text-center" style={{ color: 'var(--text-muted)' }}>Tidak ada notifikasi</p>
           ) : (
-            pendingRecent.map((r) => (
-              <button
-                key={r.id}
-                onClick={() => { setNotifOpen(false); setDetailId(r.id) }}
-                className="w-full text-left p-3.5 border-b last:border-0"
-                style={{ borderColor: 'var(--card-border)' }}
-              >
-                <p className="text-[13px] font-bold" style={{ color: 'var(--text-primary)' }}>{r.typeName}</p>
-                <p className="text-xs" style={{ color: 'var(--text-muted)' }}>{r.requesterName} · {r.submittedLabel}</p>
-              </button>
-            ))
+            pendingRecent.map((r) => {
+              const isSeen = seenNotifIds.includes(r.id)
+              return (
+                <button
+                  key={r.id}
+                  onClick={() => { setNotifOpen(false); setDetailId(r.id) }}
+                  className="w-full text-left p-3.5 border-b last:border-0 transition-all duration-150"
+                  style={{
+                    borderColor: 'var(--card-border)',
+                    background: isSeen ? 'var(--accent-maroon-soft)' : 'transparent',
+                    boxShadow: isSeen ? 'inset 3px 0 0 var(--accent-maroon)' : 'none',
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.background = 'var(--accent-maroon-soft)'
+                    e.currentTarget.style.boxShadow = '0 0 0 1px var(--accent-maroon-text), inset 3px 0 0 var(--accent-maroon)'
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background = isSeen ? 'var(--accent-maroon-soft)' : 'transparent'
+                    e.currentTarget.style.boxShadow = isSeen ? 'inset 3px 0 0 var(--accent-maroon)' : 'none'
+                  }}
+                >
+                  <p className="text-[13px] font-bold" style={{ color: 'var(--text-primary)' }}>{r.typeName}</p>
+                  <p className="text-xs" style={{ color: 'var(--text-muted)' }}>{r.requesterName} · {r.submittedLabel}</p>
+                </button>
+              )
+            })
           )}
         </div>
       )}
