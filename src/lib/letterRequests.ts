@@ -41,6 +41,15 @@ export function daysUntil(iso: string | null): number {
   return Math.ceil((target - Date.now()) / 86400000)
 }
 
+// Same normalization as generate-surat's toWaLink: 0-prefixed -> 62, already-62 kept, else prefix 62.
+export function toWaLink(phone: string | null): string | null {
+  if (!phone) return null
+  const digits = phone.replace(/\D/g, '')
+  if (!digits) return null
+  const normalized = digits.startsWith('0') ? '62' + digits.slice(1) : digits.startsWith('62') ? digits : '62' + digits
+  return `https://wa.me/${normalized}`
+}
+
 export interface EnrichedRequest {
   id: string
   typeName: string
@@ -52,6 +61,7 @@ export interface EnrichedRequest {
   status: string
   nomorSurat: string
   picPhone: string
+  picWaLink: string | null
   googleDocUrl: string | null
   hasFile: boolean
   downloadUrl: string | null
@@ -73,6 +83,7 @@ export function enrichRequest(row: LetterRequestRow, withRequester: boolean): En
     status: row.status,
     nomorSurat: row.nomor_surat || '-',
     picPhone: row.pic_phone || '-',
+    picWaLink: toWaLink(row.pic_phone),
     googleDocUrl: row.google_doc_url,
     hasFile: row.status === 'approved' && !!row.drive_file_id,
     downloadUrl: row.drive_file_id ? `https://drive.google.com/file/d/${row.drive_file_id}/view` : null,

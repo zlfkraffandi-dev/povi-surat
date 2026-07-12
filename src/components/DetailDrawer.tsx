@@ -2,6 +2,7 @@ import { X, FileText, Download } from 'lucide-react'
 import { EnrichedRequest, buildDetailFields } from '../lib/letterRequests'
 import { KopBadge } from './KopBadge'
 import { StatusPill } from './StatusPill'
+import { WhatsAppBadge } from './WhatsAppBadge'
 
 interface DetailDrawerProps {
   request: EnrichedRequest
@@ -17,7 +18,6 @@ export function DetailDrawer({ request, onClose, onAjukanUlang }: DetailDrawerPr
     ['Diajukan', request.submittedLabel],
     ['Deadline Dibutuhkan', request.deadlineLabel],
     ['Nomor Surat', request.nomorSurat],
-    ['Nomor Telepon PIC', request.picPhone],
   ]
 
   return (
@@ -52,6 +52,10 @@ export function DetailDrawer({ request, onClose, onAjukanUlang }: DetailDrawerPr
                 <span className="font-semibold" style={{ color: 'var(--text-primary)' }}>{value}</span>
               </div>
             ))}
+            <div className="flex items-center justify-between px-3.5 py-2.5 rounded-lg text-[13px]" style={{ background: 'var(--row-bg)' }}>
+              <span style={{ color: 'var(--text-muted)' }}>Nomor Telepon PIC</span>
+              <WhatsAppBadge waLink={request.picWaLink} phone={request.picPhone} />
+            </div>
           </div>
 
           <div className="flex gap-3">

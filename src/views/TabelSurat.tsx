@@ -3,6 +3,7 @@ import { Search, FileText, Download } from 'lucide-react'
 import { LetterRequestRow, enrichRequest } from '../lib/letterRequests'
 import { kopColor } from '../components/KopBadge'
 import { StatusPill } from '../components/StatusPill'
+import { WhatsAppBadge } from '../components/WhatsAppBadge'
 
 interface TabelSuratProps {
   requests: LetterRequestRow[]
@@ -77,7 +78,7 @@ export function TabelSurat({ requests, onApprove, onRevisi, onOpenDetail, busyId
             </div>
 
             <div className="flex items-center justify-between pt-3" onClick={(e) => e.stopPropagation()}>
-              <span className="text-xs" style={{ color: 'var(--text-muted)' }}>{r.picPhone || '-'}</span>
+              <WhatsAppBadge waLink={r.picWaLink} phone={r.picPhone} />
               <div className="flex items-center gap-2">
                 {r.googleDocUrl && (
                   <a href={r.googleDocUrl} target="_blank" rel="noreferrer" title="Buka Google Docs"
@@ -139,7 +140,9 @@ export function TabelSurat({ requests, onApprove, onRevisi, onOpenDetail, busyId
               </span>
               <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>{r.submittedLabel}</span>
               <span className="text-xs font-semibold" style={{ color: r.deadlineUrgent ? '#fb7185' : 'var(--text-primary)' }}>{r.deadlineLabel}</span>
-              <span className="text-xs" style={{ color: 'var(--text-muted)' }}>{r.picPhone}</span>
+              <span onClick={(e) => e.stopPropagation()}>
+                <WhatsAppBadge waLink={r.picWaLink} phone={r.picPhone} />
+              </span>
               <span className="text-xs font-semibold" style={{ color: 'var(--text-primary)' }}>{r.nomorSurat}</span>
               <span onClick={(e) => e.stopPropagation()}>
                 {r.googleDocUrl ? (

@@ -218,6 +218,7 @@ export function NewRequestModal({ onClose, onSuccess, resubmit }: NewRequestModa
         const { data, error: fnError } = await supabase.functions.invoke('generate-surat', {
           body: {
             template_doc_id: selected.google_doc_template_id,
+            template_slug: selected.slug,
             jenis_kop: selected.kop_type,
             jenis_surat: selected.name,
             kategori_surat: KATEGORI_BY_KODE[selected.kode_surat],

@@ -69,7 +69,7 @@ export function SekretarisDashboard({ profile }: { profile: UserProfile }) {
     setApproving(true)
     try {
       const { data, error: fnError } = await supabase.functions.invoke('approve-surat', {
-        body: { docId: r.google_doc_id, nomorSurat: r.nomor_surat, namaSurat: r.letter_templates?.name },
+        body: { docId: r.google_doc_id, nomorSurat: r.nomor_surat, namaSurat: r.letter_templates?.name, templateSlug: r.letter_templates?.slug },
       })
       if (fnError) throw new Error(await getFunctionErrorMessage(fnError, 'Gagal menyetujui surat.'))
       if (data?.error) throw new Error(data.error)
