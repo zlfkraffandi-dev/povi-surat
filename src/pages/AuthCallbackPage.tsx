@@ -8,9 +8,19 @@ export function AuthCallbackPage() {
   useEffect(() => {
     let cancelled = false
 
+    // Supabase's own trigger rejects sign-in for emails outside pre_approved_users before a
+    // session ever exists, and reports it back as ?error=... / #error=... on this callback URL
+    // instead of a normal session — catch that case here rather than falling through silently.
+    const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ''))
+    const searchParams = new URLSearchParams(window.location.search)
+    if (searchParams.get('error') || hashParams.get('error')) {
+      navigate('/login?error=wrong_account', { replace: true })
+      return
+    }
+
     getSession().then(async (session) => {
       if (cancelled) return
-      if (!session) { navigate('/login', { replace: true }); return }
+      if (!session) { navigate('/login?error=wrong_account', { replace: true }); return }
 
       const email = session.user.email || ''
       const profile = email.endsWith('@um.ac.id') ? await getCurrentUserProfile() : null
