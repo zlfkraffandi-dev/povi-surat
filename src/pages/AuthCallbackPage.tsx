@@ -1,6 +1,6 @@
 import { useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { getSession } from '../lib/supabase'
+import { getSession, getCurrentUserProfile, signOut } from '../lib/supabase'
 
 export function AuthCallbackPage() {
   const navigate = useNavigate()
@@ -8,9 +8,20 @@ export function AuthCallbackPage() {
   useEffect(() => {
     let cancelled = false
 
-    getSession().then((session) => {
+    getSession().then(async (session) => {
       if (cancelled) return
-      navigate(session ? '/dashboard' : '/login', { replace: true })
+      if (!session) { navigate('/login', { replace: true }); return }
+
+      const email = session.user.email || ''
+      const profile = email.endsWith('@um.ac.id') ? await getCurrentUserProfile() : null
+      if (cancelled) return
+
+      if (!profile) {
+        await signOut()
+        navigate('/login?error=wrong_account', { replace: true })
+        return
+      }
+      navigate('/dashboard', { replace: true })
     })
 
     return () => { cancelled = true }

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { signInWithGoogle, getCurrentUser } from '../lib/supabase'
-import { AlertTriangle } from 'lucide-react'
+import { AlertTriangle, X } from 'lucide-react'
 
 function GoogleLogo() {
   return (
@@ -16,13 +16,21 @@ function GoogleLogo() {
 
 export function LoginPage() {
   const navigate = useNavigate()
+  const [searchParams, setSearchParams] = useSearchParams()
   const [error, setError] = useState<string | null>(null)
+  const [showWrongAccount, setShowWrongAccount] = useState(searchParams.get('error') === 'wrong_account')
 
   useEffect(() => {
     getCurrentUser().then((user) => {
       if (user) navigate('/dashboard', { replace: true })
     })
   }, [navigate])
+
+  const dismissWrongAccount = () => {
+    setShowWrongAccount(false)
+    searchParams.delete('error')
+    setSearchParams(searchParams, { replace: true })
+  }
 
   const handleGoogleLogin = async () => {
     const { error } = await signInWithGoogle()
@@ -39,14 +47,11 @@ export function LoginPage() {
           <img src="/logo.svg" alt="Posko Visual 2026" className="shrink-0" style={{ width: 44, height: 44, borderRadius: '9999px' }} />
           <div>
             <p className="font-bold text-[17px]" style={{ color: 'var(--text-primary)' }}>Posko Visual 2026</p>
-            <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Sistem Persuratan · KOP FS &amp; POVI</p>
+            <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Sistem Persuratan - Sekretaris Posko Visual 2026</p>
           </div>
         </div>
 
-        <h1 className="text-2xl font-extrabold mb-2" style={{ color: 'var(--text-primary)' }}>Masuk ke akunmu</h1>
-        <p className="text-sm mb-7" style={{ color: 'var(--text-secondary)' }}>
-          Login pakai akun Google yang terdaftar sebagai BPH, Kadep, atau Kadiv.
-        </p>
+        <h1 className="text-2xl font-extrabold mb-7" style={{ color: 'var(--text-primary)' }}>Masuk ke akunmu</h1>
 
         {error && (
           <div
@@ -70,9 +75,31 @@ export function LoginPage() {
         </button>
 
         <p className="text-center text-[11.5px] mt-5" style={{ color: 'var(--text-muted)' }}>
-          Khusus email kampus <b>@um.ac.id</b> yang terdaftar sebagai BPH/Kadep/Kadiv.
+          Login pakai akun Google Kampus <b>@um.ac.id</b> yang terdaftar sebagai Anggota Panitia Posko Visual 2026.
         </p>
       </div>
+
+      {showWrongAccount && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4" style={{ background: 'rgba(10,12,20,0.5)' }} onClick={dismissWrongAccount}>
+          <div
+            className="modal-in relative rounded-[26px] w-full max-w-[400px] p-6 text-center"
+            style={{ background: 'var(--modal-bg)' }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button onClick={dismissWrongAccount} className="absolute top-4 right-4 w-8 h-8 rounded-full flex items-center justify-center" style={{ color: 'var(--text-muted)' }}>
+              <X size={18} />
+            </button>
+            <div className="w-14 h-14 rounded-full flex items-center justify-center mx-auto mb-4" style={{ background: 'rgba(244,63,94,0.12)' }}>
+              <AlertTriangle size={26} style={{ color: '#fb7185' }} />
+            </div>
+            <h3 className="text-lg font-extrabold mb-2" style={{ color: 'var(--text-primary)' }}>Akun Salah</h3>
+            <p className="text-sm mb-5" style={{ color: 'var(--text-secondary)' }}>
+              Akun Google yang kamu pakai bukan akun kampus <b>@um.ac.id</b> yang terdaftar sebagai Anggota Panitia Posko Visual 2026. Silakan pakai akun kampus yang benar dan coba lagi.
+            </p>
+            <button onClick={dismissWrongAccount} className="btn-primary w-full">Coba Lagi</button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
