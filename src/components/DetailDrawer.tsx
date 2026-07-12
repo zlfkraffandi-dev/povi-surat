@@ -100,6 +100,13 @@ export function DetailDrawer({ request, onClose, onAjukanUlang }: DetailDrawerPr
             ))}
           </div>
 
+          {request.catatanSekretaris && (
+            <div className="p-4 rounded-xl space-y-1" style={{ background: 'rgba(122,31,43,0.08)', border: '1px solid rgba(122,31,43,0.2)' }}>
+              <p className="text-[10px] font-extrabold tracking-wider uppercase" style={{ color: 'var(--accent-maroon-text)' }}>Catatan untuk Sekretaris</p>
+              <p className="text-sm" style={{ color: 'var(--text-primary)' }}>{request.catatanSekretaris}</p>
+            </div>
+          )}
+
           {request.status === 'revisi' && (
             <div className="p-4 rounded-xl space-y-3" style={{ background: 'rgba(244,63,94,0.1)', border: '1px solid rgba(244,63,94,0.3)' }}>
               <p className="text-sm" style={{ color: '#fb7185' }}>{request.revisionNote}</p>

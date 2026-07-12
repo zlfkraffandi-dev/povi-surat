@@ -62,6 +62,27 @@ function formatRupiah(input: string): string {
   return 'Rp ' + Number(digits).toLocaleString('id-ID')
 }
 
+const BULAN_INDONESIA = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember']
+
+// ISO yyyy-mm-dd (from <input type="date">) -> "26 Oktober 2026", matching the format
+// sekretaris asked for on every date placeholder in the letter templates.
+function formatIndoDate(iso: string): string {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(iso)) return iso
+  const [y, m, d] = iso.split('-').map(Number)
+  return `${d} ${BULAN_INDONESIA[m - 1]} ${y}`
+}
+
+// Applies Indonesian date formatting to every `date`-type field before it's sent as a
+// document placeholder; other field types pass through unchanged.
+function formatPlaceholders(data: Record<string, string>, schema: FormField[]): Record<string, string> {
+  const dateKeys = new Set(schema.filter((f) => f.type === 'date').map((f) => f.key))
+  const out: Record<string, string> = {}
+  for (const [key, value] of Object.entries(data)) {
+    out[key] = dateKeys.has(key) ? formatIndoDate(value) : value
+  }
+  return out
+}
+
 // Groups consecutive fields marked `compact` into rows of up to 3 (e.g. Hari/Tanggal/Waktu
 // triplets), others stay full-width. Capped at 3 so back-to-back triplets (like the four
 // Loading In/Exhibition/Loading Out rows in Permohonan Penyelenggaraan) don't merge into one row.
@@ -112,6 +133,7 @@ export function NewRequestModal({ onClose, onSuccess, resubmit }: NewRequestModa
   const [deadline, setDeadline] = useState(resubmit?.neededByDate || '')
   const [picPhone, setPicPhone] = useState(resubmit?.picPhone || '')
   const [divisi, setDivisi] = useState('')
+  const [catatan, setCatatan] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [errorMsg, setErrorMsg] = useState('')
   const [result, setResult] = useState<{ type: 'success' | 'error'; title: string; message: string } | null>(null)
@@ -225,9 +247,10 @@ export function NewRequestModal({ onClose, onSuccess, resubmit }: NewRequestModa
             requester: profile.name,
             divisi,
             pic_phone: picPhone,
-            placeholders: formData,
+            placeholders: formatPlaceholders(formData, selected.form_schema),
             due_date: deadline,
             table_data: selected.has_repeatable_table ? tableRows : null,
+            notes: catatan.trim(),
           },
         })
         if (fnError) throw new Error(await getFunctionErrorMessage(fnError, 'Gagal membuat surat.'))
@@ -244,6 +267,7 @@ export function NewRequestModal({ onClose, onSuccess, resubmit }: NewRequestModa
           tanggal_surat: new Date().toISOString().slice(0, 10),
           google_doc_id: data.doc_id,
           google_doc_url: `https://docs.google.com/document/d/${data.doc_id}/edit`,
+          catatan_sekretaris: catatan.trim() || null,
         })
         if (insertError) throw insertError
         onSuccess()
@@ -448,6 +472,18 @@ export function NewRequestModal({ onClose, onSuccess, resubmit }: NewRequestModa
                 <div className="col-span-2">
                   <label className="block text-sm font-semibold mb-2" style={{ color: 'var(--text-secondary)' }}>Nomor Telepon PIC</label>
                   <input value={picPhone} onChange={(e) => setPicPhone(e.target.value)} placeholder="Contoh: 0812-3456-7890" className={`input-field ${picPhone.trim() ? 'input-filled' : ''}`} />
+                </div>
+                <div className="col-span-2">
+                  <label className="block text-sm font-semibold mb-2" style={{ color: 'var(--text-secondary)' }}>
+                    Catatan untuk Sekretaris <span className="font-normal" style={{ color: 'var(--text-muted)' }}>(opsional, tidak masuk ke file surat)</span>
+                  </label>
+                  <textarea
+                    value={catatan}
+                    onChange={(e) => setCatatan(e.target.value)}
+                    rows={2}
+                    className={`input-field ${catatan.trim() ? 'input-filled' : ''}`}
+                    placeholder="Catatan internal, hanya terlihat oleh sekretaris"
+                  />
                 </div>
               </div>
 

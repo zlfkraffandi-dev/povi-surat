@@ -15,6 +15,7 @@ export interface LetterRequestRow {
   status: 'pending' | 'approved' | 'revisi' | 'selesai'
   revision_note: string | null
   pic_phone: string | null
+  catatan_sekretaris: string | null
   created_at: string
   letter_templates: Template | null
   users?: { name: string } | null
@@ -66,6 +67,7 @@ export interface EnrichedRequest {
   hasFile: boolean
   downloadUrl: string | null
   revisionNote: string | null
+  catatanSekretaris: string | null
   raw: LetterRequestRow
 }
 
@@ -88,6 +90,7 @@ export function enrichRequest(row: LetterRequestRow, withRequester: boolean): En
     hasFile: row.status === 'approved' && !!row.drive_file_id,
     downloadUrl: row.drive_file_id ? `https://drive.google.com/file/d/${row.drive_file_id}/view` : null,
     revisionNote: row.revision_note,
+    catatanSekretaris: row.catatan_sekretaris,
     raw: row,
   }
 }
