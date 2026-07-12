@@ -22,8 +22,7 @@ export function AuthCallbackPage() {
       if (cancelled) return
       if (!session) { navigate('/login?error=wrong_account', { replace: true }); return }
 
-      const email = session.user.email || ''
-      const profile = email.endsWith('@um.ac.id') ? await getCurrentUserProfile() : null
+      const profile = await getCurrentUserProfile()
       if (cancelled) return
 
       if (!profile) {
