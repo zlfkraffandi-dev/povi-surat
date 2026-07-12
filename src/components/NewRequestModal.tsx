@@ -72,12 +72,23 @@ function formatIndoDate(iso: string): string {
   return `${d} ${BULAN_INDONESIA[m - 1]} ${y}`
 }
 
-// Applies Indonesian date formatting to every `date`-type field before it's sent as a
-// document placeholder; other field types pass through unchanged.
+// Applies Indonesian date formatting to every `date`-type field, and collapses any
+// "<BASE>_MULAI" / "<BASE>_SELESAI" field pair into a single "<BASE>" placeholder written
+// as a range (e.g. "13.00 - 15.00 WIB" for time fields, "Senin - Rabu" for text) — this way
+// the document template only ever needs the original single {{BASE}} placeholder.
 function formatPlaceholders(data: Record<string, string>, schema: FormField[]): Record<string, string> {
+  const typeByKey = new Map(schema.map((f) => [f.key, f.type]))
   const dateKeys = new Set(schema.filter((f) => f.type === 'date').map((f) => f.key))
   const out: Record<string, string> = {}
   for (const [key, value] of Object.entries(data)) {
+    if (key.endsWith('_SELESAI') && typeByKey.has(key)) continue // folded into the _MULAI pass below
+    if (key.endsWith('_MULAI') && typeByKey.has(key)) {
+      const base = key.slice(0, -'_MULAI'.length)
+      const endKey = `${base}_SELESAI`
+      const isTime = typeByKey.get(key) === 'time'
+      out[base] = `${value} - ${data[endKey] || ''}${isTime ? ' WIB' : ''}`
+      continue
+    }
     out[key] = dateKeys.has(key) ? formatIndoDate(value) : value
   }
   return out
