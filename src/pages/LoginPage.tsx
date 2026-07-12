@@ -36,14 +36,9 @@ export function LoginPage() {
         style={{ maxWidth: 420, background: 'var(--card-bg)', borderColor: 'var(--card-border)' }}
       >
         <div className="flex items-center gap-3 mb-7">
-          <div
-            className="flex items-center justify-center rounded-[14px] text-white font-extrabold shrink-0"
-            style={{ width: 44, height: 44, background: 'var(--accent-maroon)' }}
-          >
-            S
-          </div>
+          <img src="/logo.svg" alt="Posko Visual 2026" className="shrink-0" style={{ width: 44, height: 44, borderRadius: '9999px' }} />
           <div>
-            <p className="font-bold text-[17px]" style={{ color: 'var(--text-primary)' }}>Sekre Otomatis</p>
+            <p className="font-bold text-[17px]" style={{ color: 'var(--text-primary)' }}>Posko Visual 2026</p>
             <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Sistem Persuratan · KOP FS &amp; POVI</p>
           </div>
         </div>

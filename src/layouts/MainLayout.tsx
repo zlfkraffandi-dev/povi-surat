@@ -38,13 +38,8 @@ export function MainLayout({ children, title, subtitle, navItems, rightExtra, pr
         style={{ background: 'var(--sidebar-bg)', borderColor: 'var(--card-border)' }}
       >
         <div className="p-4 flex items-center gap-2.5 border-b" style={{ borderColor: 'var(--card-border)' }}>
-          <div
-            className="flex items-center justify-center rounded-[14px] text-white font-extrabold"
-            style={{ width: 44, height: 44, background: 'var(--accent-maroon)' }}
-          >
-            S
-          </div>
-          <span className="font-bold text-[15px]" style={{ color: 'var(--text-primary)' }}>Sekre Otomatis</span>
+          <img src="/logo.svg" alt="Posko Visual 2026" style={{ width: 44, height: 44, borderRadius: '9999px' }} />
+          <span className="font-bold text-[15px]" style={{ color: 'var(--text-primary)' }}>Posko Visual 2026</span>
         </div>
 
         <nav className="flex-1 py-4 px-3 space-y-1">

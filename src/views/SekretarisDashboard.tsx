@@ -41,7 +41,7 @@ export function SekretarisDashboard({ profile }: { profile: UserProfile }) {
       .then(({ data }) => setRequests((data as any) || []))
   }
 
-  useEffect(load, [])
+  useEffect(load, [tab])
 
   const perluReview = requests.filter((r) => r.status === 'pending').length
   const deadlineMendesak = requests.filter((r) => (r.status === 'pending' || r.status === 'revisi') && daysUntil(r.needed_by_date) <= 2).length

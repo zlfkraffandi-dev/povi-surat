@@ -27,7 +27,7 @@ export function LogoutConfirmModal({ onCancel, onConfirm }: LogoutConfirmModalPr
           Yakin ingin keluar?
         </h3>
         <p className="text-sm mb-6" style={{ color: 'var(--text-secondary)', lineHeight: 1.55 }}>
-          Kamu akan keluar dari akun Sekre Otomatis dan perlu masuk kembali untuk melanjutkan.
+          Kamu akan keluar dari akun Posko Visual 2026 dan perlu masuk kembali untuk melanjutkan.
         </p>
         <div className="flex gap-3">
           <button onClick={onCancel} className="btn-outline flex-1">Batal</button>

@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Search, FileText, Download } from 'lucide-react'
 import { LetterRequestRow, enrichRequest } from '../lib/letterRequests'
 import { kopColor } from '../components/KopBadge'
+import { StatusPill } from '../components/StatusPill'
 
 interface TabelSuratProps {
   requests: LetterRequestRow[]
@@ -40,7 +41,80 @@ export function TabelSurat({ requests, onApprove, onRevisi, onOpenDetail, busyId
         />
       </div>
 
-      <div className="card overflow-x-auto p-0">
+      {/* Mobile: card list */}
+      <div className="space-y-3 md:hidden">
+        {enriched.map((r) => (
+          <div
+            key={r.id}
+            onClick={() => onOpenDetail(r.id)}
+            className="rounded-2xl border p-4 cursor-pointer transition-transform active:scale-[0.985]"
+            style={{ background: 'var(--card-bg)', borderColor: 'var(--card-border)', boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}
+          >
+            <div className="flex items-start justify-between gap-2 mb-3">
+              <div className="min-w-0">
+                <p className="text-[15px] font-extrabold truncate" style={{ color: 'var(--text-primary)' }}>{r.requesterName}</p>
+                <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>{r.typeName}</p>
+              </div>
+              <div className="flex items-center gap-1.5 shrink-0">
+                <span className="px-2 py-0.5 rounded-md text-[10px] font-extrabold text-white" style={{ background: kopColor(r.kop) }}>{r.kop}</span>
+                <StatusPill status={r.status} />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-3 gap-2 py-3 border-t border-b" style={{ borderColor: 'var(--card-border)' }}>
+              <div>
+                <p className="text-[9.5px] font-extrabold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>Diajukan</p>
+                <p className="text-xs font-semibold mt-0.5" style={{ color: 'var(--text-primary)' }}>{r.submittedLabel}</p>
+              </div>
+              <div>
+                <p className="text-[9.5px] font-extrabold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>Deadline</p>
+                <p className="text-xs font-semibold mt-0.5" style={{ color: r.deadlineUrgent ? '#fb7185' : 'var(--text-primary)' }}>{r.deadlineLabel}</p>
+              </div>
+              <div>
+                <p className="text-[9.5px] font-extrabold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>Nomor Surat</p>
+                <p className="text-xs font-semibold mt-0.5 truncate" style={{ color: 'var(--text-primary)' }}>{r.nomorSurat || '-'}</p>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between pt-3" onClick={(e) => e.stopPropagation()}>
+              <span className="text-xs" style={{ color: 'var(--text-muted)' }}>{r.picPhone || '-'}</span>
+              <div className="flex items-center gap-2">
+                {r.googleDocUrl && (
+                  <a href={r.googleDocUrl} target="_blank" rel="noreferrer" title="Buka Google Docs"
+                     className="w-9 h-9 rounded-xl border flex items-center justify-center" style={{ borderColor: 'var(--card-border)', color: 'var(--text-secondary)' }}>
+                    <FileText size={15} />
+                  </a>
+                )}
+                {r.hasFile && r.downloadUrl && (
+                  <a href={r.downloadUrl} target="_blank" rel="noreferrer" title="Download File PDF"
+                     className="w-9 h-9 rounded-xl border flex items-center justify-center" style={{ borderColor: 'var(--accent-maroon-text)', background: 'var(--accent-maroon-soft)', color: 'var(--accent-maroon-text)' }}>
+                    <Download size={15} />
+                  </a>
+                )}
+                <select
+                  value={r.status}
+                  disabled={busyId === r.id}
+                  onChange={(e) => handleStatusChange(r.raw, e.target.value)}
+                  className="input-field text-xs py-2"
+                >
+                  <option value="pending">Pending</option>
+                  <option value="approved">Approved</option>
+                  <option value="revisi">Revisi</option>
+                </select>
+              </div>
+            </div>
+          </div>
+        ))}
+
+        {enriched.length === 0 && (
+          <p className="text-center py-12 text-sm" style={{ color: 'var(--text-muted)' }}>
+            Tidak ada request yang cocok dengan pencarian ini.
+          </p>
+        )}
+      </div>
+
+      {/* Desktop: full table */}
+      <div className="card overflow-x-auto p-0 hidden md:block">
         <div className="min-w-[1100px]">
           <div
             className="grid px-5 py-3 border-b"
