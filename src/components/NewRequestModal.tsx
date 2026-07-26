@@ -165,7 +165,7 @@ export function NewRequestModal({ onClose, onSuccess, resubmit }: NewRequestModa
   const [lainPicPhone, setLainPicPhone] = useState('')
 
   useEffect(() => {
-    supabase.from('letter_templates').select('*').order('name').then(({ data }) => {
+    supabase.from('letter_templates').select('*').eq('is_active', true).order('name').then(({ data }) => {
       setTemplates((data as any) || [])
     })
   }, [])
