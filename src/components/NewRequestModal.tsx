@@ -78,18 +78,27 @@ function formatIndoDate(iso: string): string {
 // the document template only ever needs the original single {{BASE}} placeholder.
 function formatPlaceholders(data: Record<string, string>, schema: FormField[]): Record<string, string> {
   const typeByKey = new Map(schema.map((f) => [f.key, f.type]))
-  const dateKeys = new Set(schema.filter((f) => f.type === 'date').map((f) => f.key))
   const out: Record<string, string> = {}
   for (const [key, value] of Object.entries(data)) {
     if (key.endsWith('_SELESAI') && typeByKey.has(key)) continue // folded into the _MULAI pass below
     if (key.endsWith('_MULAI') && typeByKey.has(key)) {
       const base = key.slice(0, -'_MULAI'.length)
       const endKey = `${base}_SELESAI`
-      const isTime = typeByKey.get(key) === 'time'
-      out[base] = `${value} - ${data[endKey] || ''}${isTime ? ' WIB' : ''}`
+      const type = typeByKey.get(key)
+      const endValue = data[endKey] || ''
+      if (type === 'date') {
+        const startFmt = formatIndoDate(value)
+        // Same start/end date (the common case) collapses to a single date
+        // instead of "27 Juli 2026 - 27 Juli 2026".
+        out[base] = !endValue || value === endValue ? startFmt : `${startFmt} - ${formatIndoDate(endValue)}`
+      } else if (type === 'time') {
+        out[base] = `${value} - ${endValue} WIB`
+      } else {
+        out[base] = `${value} - ${endValue}`
+      }
       continue
     }
-    out[key] = dateKeys.has(key) ? formatIndoDate(value) : value
+    out[key] = typeByKey.get(key) === 'date' ? formatIndoDate(value) : value
   }
   return out
 }
@@ -102,7 +111,11 @@ function groupFields(fields: FormField[]): FormField[][] {
   const groups: FormField[][] = []
   fields.forEach((field) => {
     const lastGroup = groups[groups.length - 1]
-    if (field.compact && lastGroup && lastGroup[0].compact && lastGroup.length < MAX_COMPACT_GROUP) {
+    // A new section (e.g. "Loading In H-2" after "Loading In H-1") always starts
+    // its own row, even mid-count — otherwise a 5-field section spills its
+    // last fields into the next section's first row.
+    const sameSection = lastGroup && splitLabel(field.label).section === splitLabel(lastGroup[0].label).section
+    if (field.compact && lastGroup && lastGroup[0].compact && lastGroup.length < MAX_COMPACT_GROUP && sameSection) {
       lastGroup.push(field)
     } else {
       groups.push([field])
