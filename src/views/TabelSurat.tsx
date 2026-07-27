@@ -9,6 +9,7 @@ interface TabelSuratProps {
   requests: LetterRequestRow[]
   loading?: boolean
   onApprove: (row: LetterRequestRow) => void
+  onMarkTTD: (row: LetterRequestRow) => void
   onRevisi: (id: string) => void
   onOpenDetail: (id: string) => void
   busyId: string | null
@@ -16,7 +17,7 @@ interface TabelSuratProps {
 
 const GRID = '0.95fr 1.05fr 0.35fr 0.9fr 0.65fr 0.85fr 0.85fr 0.75fr 0.85fr 0.75fr'
 
-export function TabelSurat({ requests, loading, onApprove, onRevisi, onOpenDetail, busyId }: TabelSuratProps) {
+export function TabelSurat({ requests, loading, onApprove, onMarkTTD, onRevisi, onOpenDetail, busyId }: TabelSuratProps) {
   const [search, setSearch] = useState('')
 
   let rows = requests
@@ -28,6 +29,7 @@ export function TabelSurat({ requests, loading, onApprove, onRevisi, onOpenDetai
 
   const handleStatusChange = (row: LetterRequestRow, value: string) => {
     if (value === 'approved') onApprove(row)
+    else if (value === 'proses_ttd') onMarkTTD(row)
     else if (value === 'revisi') onRevisi(row.id)
   }
 
@@ -103,6 +105,7 @@ export function TabelSurat({ requests, loading, onApprove, onRevisi, onOpenDetai
                   className="input-field text-xs py-2"
                 >
                   <option value="pending">Pending</option>
+                  <option value="proses_ttd">Proses TTD</option>
                   <option value="approved">Approved</option>
                   <option value="revisi">Revisi</option>
                 </select>
@@ -177,6 +180,7 @@ export function TabelSurat({ requests, loading, onApprove, onRevisi, onOpenDetai
                   className="input-field text-xs py-1.5"
                 >
                   <option value="pending">Pending</option>
+                  <option value="proses_ttd">Proses TTD</option>
                   <option value="approved">Approved</option>
                   <option value="revisi">Revisi</option>
                 </select>

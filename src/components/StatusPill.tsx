@@ -1,5 +1,6 @@
 const STATUS_STYLE: Record<string, { color: string; bg: string; label: string }> = {
   pending: { color: '#f59e0b', bg: 'rgba(245,158,11,0.16)', label: 'Pending' },
+  proses_ttd: { color: '#0891b2', bg: 'rgba(8,145,178,0.16)', label: 'Proses TTD' },
   approved: { color: '#1d3557', bg: 'rgba(29,53,87,0.16)', label: 'Approved' },
   revisi: { color: '#fb7185', bg: 'rgba(244,63,94,0.16)', label: 'Revisi' },
   selesai: { color: '#14532d', bg: 'rgba(20,83,45,0.16)', label: 'Selesai' },

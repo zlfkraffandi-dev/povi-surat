@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Home, LayoutGrid, Table2, Bell, Inbox, AlarmClock, CheckCircle2, BarChart3, Search, CheckCircle, XCircle, FileText, Download } from 'lucide-react'
+import { Home, LayoutGrid, Table2, Bell, Inbox, AlarmClock, CheckCircle2, BarChart3, Search, CheckCircle, XCircle, FileText, Download, ClipboardSignature } from 'lucide-react'
 import { supabase, UserProfile } from '../lib/supabase'
 import { MainLayout } from '../layouts/MainLayout'
 import { StatCard } from '../components/StatCard'
@@ -19,6 +19,7 @@ const KATEGORI_BY_KODE: Record<string, string> = { '01': 'permohonan', '02': 'un
 const FILTERS = [
   { value: 'all', label: 'Semua' },
   { value: 'pending', label: 'Pending' },
+  { value: 'proses_ttd', label: 'Proses TTD' },
   { value: 'approved', label: 'Approved' },
   { value: 'revisi', label: 'Revisi' },
 ]
@@ -77,6 +78,30 @@ export function SekretarisDashboard({ profile }: { profile: UserProfile }) {
   const pendingRecent = requests.filter((r) => r.status === 'pending').slice(0, 5).map((r) => enrichRequest(r, true))
   const detailReq = detailId ? enrichRequest(requests.find((r) => r.id === detailId)!, true) : null
 
+  const handleMarkTTD = async (r: LetterRequestRow) => {
+    setBusyId(r.id)
+    try {
+      const { data, error: fnError } = await supabase.functions.invoke('mark-ttd', {
+        body: { docId: r.google_doc_id },
+      })
+      if (fnError) throw new Error(await getFunctionErrorMessage(fnError, 'Gagal memproses TTD.'))
+      if (data?.error) throw new Error(data.error)
+
+      const { error } = await supabase
+        .from('letter_requests')
+        .update({ status: 'proses_ttd', tanggal_surat: new Date().toISOString().slice(0, 10) })
+        .eq('id', r.id)
+      if (error) throw error
+
+      load()
+      setResult({ type: 'success', title: 'Diproses untuk TTD', message: `Tanggal surat diisi ${data.tanggal_surat}. Surat menunggu tanda tangan fisik sebelum di-Approve.` })
+    } catch (err: any) {
+      setResult({ type: 'error', title: 'Gagal Memproses TTD', message: err.message || 'Terjadi kesalahan tidak diketahui.' })
+    } finally {
+      setBusyId(null)
+    }
+  }
+
   const handleApprove = async (r: LetterRequestRow) => {
     setBusyId(r.id)
     setApproving(true)
@@ -89,6 +114,10 @@ export function SekretarisDashboard({ profile }: { profile: UserProfile }) {
           templateSlug: r.letter_templates?.slug,
           jenis_kop: r.letter_templates?.kop_type,
           kategori_surat: r.letter_templates?.kode_surat ? KATEGORI_BY_KODE[r.letter_templates.kode_surat] : undefined,
+          // Proses TTD already fixed the letterhead date to the day it was
+          // sent for signature — approve-surat must not overwrite it with
+          // today's date.
+          skipDateFill: r.status === 'proses_ttd',
         },
       })
       if (fnError) throw new Error(await getFunctionErrorMessage(fnError, 'Gagal menyetujui surat.'))
@@ -294,8 +323,19 @@ export function SekretarisDashboard({ profile }: { profile: UserProfile }) {
                           <FileText size={15} />
                         </a>
                       )}
-                      {(r.status === 'pending' || r.status === 'revisi') && (
+                      {(r.status === 'pending' || r.status === 'revisi' || r.status === 'proses_ttd') && (
                         <>
+                          {(r.status === 'pending' || r.status === 'revisi') && (
+                            <button
+                              onClick={() => handleMarkTTD(r.raw)}
+                              disabled={busyId === r.id}
+                              title="Proses TTD"
+                              className="w-8 h-8 rounded-lg flex items-center justify-center disabled:opacity-50"
+                              style={{ background: 'rgba(8,145,178,0.16)', color: '#0891b2' }}
+                            >
+                              <ClipboardSignature size={15} />
+                            </button>
+                          )}
                           <button
                             onClick={() => handleApprove(r.raw)}
                             disabled={busyId === r.id}
@@ -324,7 +364,7 @@ export function SekretarisDashboard({ profile }: { profile: UserProfile }) {
           )}
         </div>
       ) : (
-        <TabelSurat requests={requests} loading={loading} onApprove={handleApprove} onRevisi={(id) => setRevisiTargetId(id)} onOpenDetail={setDetailId} busyId={busyId} />
+        <TabelSurat requests={requests} loading={loading} onApprove={handleApprove} onMarkTTD={handleMarkTTD} onRevisi={(id) => setRevisiTargetId(id)} onOpenDetail={setDetailId} busyId={busyId} />
       )}
 
       {revisiTargetId && (

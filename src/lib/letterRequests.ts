@@ -12,7 +12,7 @@ export interface LetterRequestRow {
   google_doc_id: string | null
   google_doc_url: string | null
   drive_file_id: string | null
-  status: 'pending' | 'approved' | 'revisi' | 'selesai'
+  status: 'pending' | 'proses_ttd' | 'approved' | 'revisi' | 'selesai'
   revision_note: string | null
   pic_phone: string | null
   catatan_sekretaris: string | null
