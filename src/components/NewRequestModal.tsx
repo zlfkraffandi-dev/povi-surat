@@ -305,6 +305,34 @@ export function NewRequestModal({ onClose, onSuccess, resubmit }: NewRequestModa
     }
   }
 
+  // ponytail: temporary QA helper — autofills the form with sample data so
+  // testing doesn't require typing every field by hand. Delete this whole
+  // function + its button once all templates are verified end-to-end.
+  const fillDemoData = () => {
+    if (!selected) return
+    const demo: Record<string, string> = {}
+    selected.form_schema.forEach((f) => {
+      if (f.type === 'select') demo[f.key] = f.options?.[0] || ''
+      else if (f.type === 'date') demo[f.key] = new Date().toISOString().slice(0, 10)
+      else if (f.type === 'time') demo[f.key] = '13:00'
+      else if (f.type === 'number') demo[f.key] = formatRupiah('500000')
+      else if (f.type === 'textarea') demo[f.key] = 'Contoh deskripsi untuk keperluan testing.'
+      else demo[f.key] = `Contoh ${f.label}`
+    })
+    setFormData(demo)
+    if (selected.has_repeatable_table && selected.repeatable_table_config) {
+      const row: Record<string, string> = {}
+      selected.repeatable_table_config.columns.forEach((col) => {
+        row[col.key] = col.type === 'time' ? '13:00' : col.type === 'date' ? new Date().toISOString().slice(0, 10) : col.type === 'number' ? '10' : `Contoh ${col.label}`
+      })
+      setTableRows([row])
+    }
+    setDeadline(new Date(Date.now() + 7 * 86400000).toISOString().slice(0, 10))
+    setPicPhone('081234567890')
+    setDivisi(DIVISI_OPTIONS[0])
+    setCatatan('Contoh catatan untuk testing.')
+  }
+
   const kopFs = templates.filter((t) => t.kop_type === 'FS')
   const kopPovi = templates.filter((t) => t.kop_type === 'POVI')
 
@@ -347,6 +375,18 @@ export function NewRequestModal({ onClose, onSuccess, resubmit }: NewRequestModa
                 </optgroup>
               </select>
             </div>
+          )}
+
+          {/* ponytail: temporary QA helper button, delete alongside fillDemoData once all templates are locked */}
+          {selected && !resubmit && (
+            <button
+              type="button"
+              onClick={fillDemoData}
+              className="text-xs font-semibold underline"
+              style={{ color: 'var(--text-muted)' }}
+            >
+              Isi Contoh (Demo)
+            </button>
           )}
 
           {isLain && (
