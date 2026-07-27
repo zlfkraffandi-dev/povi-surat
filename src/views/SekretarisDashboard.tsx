@@ -14,6 +14,8 @@ import { RequesterDashboardContent } from './RequesterDashboard'
 import { LetterRequestRow, enrichRequest, daysUntil } from '../lib/letterRequests'
 import { getFunctionErrorMessage } from '../lib/functionError'
 
+const KATEGORI_BY_KODE: Record<string, string> = { '01': 'permohonan', '02': 'undangan', '03': 'sertifikat' }
+
 const FILTERS = [
   { value: 'all', label: 'Semua' },
   { value: 'pending', label: 'Pending' },
@@ -80,7 +82,14 @@ export function SekretarisDashboard({ profile }: { profile: UserProfile }) {
     setApproving(true)
     try {
       const { data, error: fnError } = await supabase.functions.invoke('approve-surat', {
-        body: { docId: r.google_doc_id, nomorSurat: r.nomor_surat, namaSurat: r.letter_templates?.name, templateSlug: r.letter_templates?.slug },
+        body: {
+          docId: r.google_doc_id,
+          nomorSurat: r.nomor_surat,
+          namaSurat: r.letter_templates?.name,
+          templateSlug: r.letter_templates?.slug,
+          jenis_kop: r.letter_templates?.kop_type,
+          kategori_surat: r.letter_templates?.kode_surat ? KATEGORI_BY_KODE[r.letter_templates.kode_surat] : undefined,
+        },
       })
       if (fnError) throw new Error(await getFunctionErrorMessage(fnError, 'Gagal menyetujui surat.'))
       if (data?.error) throw new Error(data.error)
