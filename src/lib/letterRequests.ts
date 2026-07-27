@@ -1,5 +1,12 @@
 import { Template, FormField } from './templates'
 
+export interface LampiranItem {
+  type: 'file' | 'link'
+  url: string
+  name: string
+  driveFileId?: string
+}
+
 export interface LetterRequestRow {
   id: string
   template_id: string | null
@@ -16,6 +23,7 @@ export interface LetterRequestRow {
   revision_note: string | null
   pic_phone: string | null
   catatan_sekretaris: string | null
+  lampiran: LampiranItem[] | null
   created_at: string
   letter_templates: Template | null
   users?: { name: string } | null

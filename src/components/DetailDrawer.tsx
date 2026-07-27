@@ -1,4 +1,4 @@
-import { X, FileText, Download } from 'lucide-react'
+import { X, FileText, Download, Paperclip, Link as LinkIcon } from 'lucide-react'
 import { EnrichedRequest, buildDetailFields } from '../lib/letterRequests'
 import { KopBadge } from './KopBadge'
 import { StatusPill } from './StatusPill'
@@ -99,6 +99,25 @@ export function DetailDrawer({ request, onClose, onAjukanUlang }: DetailDrawerPr
               </div>
             ))}
           </div>
+
+          {request.raw.lampiran && request.raw.lampiran.length > 0 && (
+            <div className="space-y-2">
+              <h4 className="text-sm font-bold" style={{ color: 'var(--text-primary)' }}>Lampiran</h4>
+              {request.raw.lampiran.map((item, i) => (
+                <a
+                  key={i}
+                  href={item.url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="flex items-center gap-2 px-3.5 py-2.5 rounded-lg text-sm"
+                  style={{ background: 'var(--row-bg)', color: 'var(--text-primary)' }}
+                >
+                  {item.type === 'file' ? <Paperclip size={14} style={{ color: 'var(--text-muted)' }} /> : <LinkIcon size={14} style={{ color: 'var(--text-muted)' }} />}
+                  <span className="truncate">{item.name}</span>
+                </a>
+              ))}
+            </div>
+          )}
 
           {request.catatanSekretaris && (
             <div className="p-4 rounded-xl space-y-1" style={{ background: 'rgba(122,31,43,0.08)', border: '1px solid rgba(122,31,43,0.2)' }}>

@@ -118,6 +118,7 @@ export function SekretarisDashboard({ profile }: { profile: UserProfile }) {
           // sent for signature — approve-surat must not overwrite it with
           // today's date.
           skipDateFill: r.status === 'proses_ttd',
+          lampiran: r.lampiran,
         },
       })
       if (fnError) throw new Error(await getFunctionErrorMessage(fnError, 'Gagal menyetujui surat.'))
@@ -125,7 +126,7 @@ export function SekretarisDashboard({ profile }: { profile: UserProfile }) {
 
       const { error } = await supabase
         .from('letter_requests')
-        .update({ status: 'approved', current_folder: 'approved', drive_file_id: data.pdf_file_id })
+        .update({ status: 'approved', current_folder: 'approved', drive_file_id: data.pdf_file_id, lampiran: data.lampiran })
         .eq('id', r.id)
       if (error) throw error
 

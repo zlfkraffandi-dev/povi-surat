@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
-import { X, Plus, Trash2 } from 'lucide-react'
+import { X, Plus, Trash2, Upload, Link as LinkIcon, Paperclip } from 'lucide-react'
 import { supabase, getCurrentUserProfile } from '../lib/supabase'
 import { Template, RepeatableConfig, FormField } from '../lib/templates'
+import { LampiranItem } from '../lib/letterRequests'
 import { getFunctionErrorMessage } from '../lib/functionError'
 import { LoadingOverlay } from './LoadingOverlay'
 import { ResultModal } from './ResultModal'
@@ -166,6 +167,10 @@ export function NewRequestModal({ onClose, onSuccess, resubmit }: NewRequestModa
   const [picPhone, setPicPhone] = useState(resubmit?.picPhone || '')
   const [divisi, setDivisi] = useState('')
   const [catatan, setCatatan] = useState('')
+  const [lampiranList, setLampiranList] = useState<LampiranItem[]>([])
+  const [linkInput, setLinkInput] = useState('')
+  const [uploadingLampiran, setUploadingLampiran] = useState(false)
+  const [dragOver, setDragOver] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [errorMsg, setErrorMsg] = useState('')
   const [result, setResult] = useState<{ type: 'success' | 'error'; title: string; message: string } | null>(null)
@@ -197,6 +202,39 @@ export function NewRequestModal({ onClose, onSuccess, resubmit }: NewRequestModa
   const addRow = () => selected && setTableRows((prev) => [...prev, emptyRow(selected)])
   const removeRow = (index: number) => setTableRows((prev) => (prev.length > 1 ? prev.filter((_, i) => i !== index) : prev))
 
+  const uploadFiles = async (files: FileList | File[]) => {
+    setUploadingLampiran(true)
+    setErrorMsg('')
+    try {
+      for (const file of Array.from(files)) {
+        const base64Content = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader()
+          reader.onload = () => resolve((reader.result as string).split(',')[1])
+          reader.onerror = reject
+          reader.readAsDataURL(file)
+        })
+        const { data, error } = await supabase.functions.invoke('upload-lampiran', {
+          body: { fileName: file.name, mimeType: file.type, base64Content, jenisSurat: selected?.name || (isLain ? 'Surat Lain' : '') },
+        })
+        if (error) throw new Error(await getFunctionErrorMessage(error, 'Gagal upload lampiran.'))
+        if (data?.error) throw new Error(data.error)
+        setLampiranList((prev) => [...prev, { type: 'file', url: data.url, name: file.name, driveFileId: data.driveFileId }])
+      }
+    } catch (err: any) {
+      setErrorMsg(err.message || 'Gagal upload lampiran.')
+    } finally {
+      setUploadingLampiran(false)
+    }
+  }
+
+  const addLampiranLink = () => {
+    if (!linkInput.trim()) return
+    setLampiranList((prev) => [...prev, { type: 'link', url: linkInput.trim(), name: linkInput.trim() }])
+    setLinkInput('')
+  }
+
+  const removeLampiran = (index: number) => setLampiranList((prev) => prev.filter((_, i) => i !== index))
+
   const submitSuratLain = async () => {
     if (!lainKepada.trim() || !lainHal.trim() || !lainTanggal || !lainWaktuTempat.trim() || !lainNamaKegiatan.trim() || !lainPicPhone.trim()) {
       setErrorMsg('Semua field wajib diisi.')
@@ -217,6 +255,7 @@ export function NewRequestModal({ onClose, onSuccess, resubmit }: NewRequestModa
         nama_kegiatan: lainNamaKegiatan,
         needed_by_date: lainTanggal,
         pic_phone: lainPicPhone,
+        lampiran: lampiranList.length > 0 ? lampiranList : null,
       })
       if (error) throw error
 
@@ -269,6 +308,7 @@ export function NewRequestModal({ onClose, onSuccess, resubmit }: NewRequestModa
             pic_phone: picPhone,
             status: 'pending',
             revision_note: null,
+            lampiran: lampiranList.length > 0 ? lampiranList : null,
           })
           .eq('id', resubmit.id)
         if (error) throw error
@@ -306,6 +346,7 @@ export function NewRequestModal({ onClose, onSuccess, resubmit }: NewRequestModa
           google_doc_id: data.doc_id,
           google_doc_url: `https://docs.google.com/document/d/${data.doc_id}/edit`,
           catatan_sekretaris: catatan.trim() || null,
+          lampiran: lampiranList.length > 0 ? lampiranList : null,
         })
         if (insertError) throw insertError
         onSuccess()
@@ -585,6 +626,64 @@ export function NewRequestModal({ onClose, onSuccess, resubmit }: NewRequestModa
                     placeholder="Catatan internal, hanya terlihat oleh sekretaris"
                   />
                 </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold mb-2" style={{ color: 'var(--text-secondary)' }}>
+                  Lampiran <span className="font-normal" style={{ color: 'var(--text-muted)' }}>(opsional, boleh lebih dari satu)</span>
+                </label>
+
+                <div
+                  onDragOver={(e) => { e.preventDefault(); setDragOver(true) }}
+                  onDragLeave={() => setDragOver(false)}
+                  onDrop={(e) => {
+                    e.preventDefault()
+                    setDragOver(false)
+                    if (e.dataTransfer.files.length > 0) uploadFiles(e.dataTransfer.files)
+                  }}
+                  className="rounded-xl border-2 border-dashed flex flex-col items-center justify-center gap-2 p-5 text-center cursor-pointer"
+                  style={{ borderColor: dragOver ? 'var(--accent-maroon-text)' : 'var(--card-border)', background: dragOver ? 'var(--accent-maroon-soft)' : 'var(--row-bg)' }}
+                  onClick={() => document.getElementById('lampiran-file-input')?.click()}
+                >
+                  <input
+                    id="lampiran-file-input"
+                    type="file"
+                    multiple
+                    className="hidden"
+                    onChange={(e) => e.target.files && uploadFiles(e.target.files)}
+                  />
+                  <Upload size={20} style={{ color: 'var(--text-muted)' }} />
+                  <p className="text-sm font-semibold" style={{ color: 'var(--text-secondary)' }}>
+                    {uploadingLampiran ? 'Mengupload...' : 'Tarik file ke sini atau klik untuk pilih'}
+                  </p>
+                </div>
+
+                <div className="flex gap-2 mt-2" onClick={(e) => e.stopPropagation()}>
+                  <input
+                    value={linkInput}
+                    onChange={(e) => setLinkInput(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addLampiranLink() } }}
+                    placeholder="Atau tempel link (Contoh: https://drive.google.com/...)"
+                    className="input-field flex-1 text-sm"
+                  />
+                  <button type="button" onClick={addLampiranLink} className="btn-outline flex items-center gap-1.5 text-sm px-3">
+                    <LinkIcon size={14} /> Tambah
+                  </button>
+                </div>
+
+                {lampiranList.length > 0 && (
+                  <div className="space-y-1.5 mt-2">
+                    {lampiranList.map((item, i) => (
+                      <div key={i} className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm" style={{ background: 'var(--row-bg)' }}>
+                        {item.type === 'file' ? <Paperclip size={14} style={{ color: 'var(--text-muted)' }} /> : <LinkIcon size={14} style={{ color: 'var(--text-muted)' }} />}
+                        <span className="truncate flex-1" style={{ color: 'var(--text-primary)' }}>{item.name}</span>
+                        <button onClick={() => removeLampiran(i)} style={{ color: '#fb7185' }}>
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
 
               {!selected.google_doc_template_id && (
