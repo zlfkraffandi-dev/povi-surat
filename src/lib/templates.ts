@@ -1,9 +1,10 @@
 export interface FormField {
   key: string
-  type: 'text' | 'date' | 'textarea' | 'number' | 'time'
+  type: 'text' | 'date' | 'textarea' | 'number' | 'time' | 'select'
   label: string
   placeholder?: string
   compact?: boolean
+  options?: string[]
 }
 
 export interface RepeatableColumn {
@@ -30,4 +31,9 @@ export interface Template {
   has_repeatable_table: boolean
   repeatable_table_config: RepeatableConfig | null
   requires_nomor_surat: boolean
+  // Templates with multiple recipient-specific document variants (e.g. Izin
+  // Keramaian: Dishub/Polres/RT-RW) key their real doc id here instead of
+  // google_doc_template_id, keyed by the value of the template's single
+  // 'select' field.
+  doc_id_by_option: Record<string, string> | null
 }

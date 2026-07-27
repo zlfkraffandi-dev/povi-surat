@@ -238,6 +238,12 @@ export function NewRequestModal({ onClose, onSuccess, resubmit }: NewRequestModa
       const profile = await getCurrentUserProfile()
       if (!profile) throw new Error('Profil pengguna tidak ditemukan')
 
+      const selectField = selected.form_schema.find((f) => f.type === 'select')
+      const templateDocId = selected.doc_id_by_option && selectField
+        ? selected.doc_id_by_option[formData[selectField.key]]
+        : selected.google_doc_template_id
+      if (!templateDocId) throw new Error(`Dokumen untuk pilihan "${selectField ? formData[selectField.key] : ''}" belum tersedia.`)
+
       if (resubmit) {
         // ponytail: resubmit reuses the existing doc/nomor surat (no re-generation);
         // full doc regeneration on revisi would need a new edge function, out of scope for now.
@@ -258,7 +264,7 @@ export function NewRequestModal({ onClose, onSuccess, resubmit }: NewRequestModa
       } else {
         const { data, error: fnError } = await supabase.functions.invoke('generate-surat', {
           body: {
-            template_doc_id: selected.google_doc_template_id,
+            template_doc_id: templateDocId,
             template_slug: selected.slug,
             jenis_kop: selected.kop_type,
             jenis_surat: selected.name,
@@ -407,7 +413,16 @@ export function NewRequestModal({ onClose, onSuccess, resubmit }: NewRequestModa
                           return (
                             <div key={field.key} className={group[0].compact ? 'flex-1' : ''}>
                               <label className="block text-sm font-semibold mb-2" style={{ color: 'var(--text-secondary)' }}>{splitLabel(field.label).short}</label>
-                              {field.type === 'textarea' ? (
+                              {field.type === 'select' ? (
+                                <select
+                                  value={value}
+                                  onChange={(e) => setFormData((p) => ({ ...p, [field.key]: e.target.value }))}
+                                  className={`input-field ${glowClass}`}
+                                >
+                                  <option value="">Pilih...</option>
+                                  {field.options?.map((opt) => <option key={opt} value={opt}>{opt}</option>)}
+                                </select>
+                              ) : field.type === 'textarea' ? (
                                 <textarea
                                   value={value}
                                   onChange={(e) => setFormData((p) => ({ ...p, [field.key]: e.target.value }))}
