@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { X, Plus, Trash2, Upload, Link as LinkIcon, Paperclip } from 'lucide-react'
+import { X, Plus, Trash2, Upload, Link as LinkIcon, Paperclip, Loader2 } from 'lucide-react'
 import { supabase, getCurrentUserProfile } from '../lib/supabase'
 import { Template, RepeatableConfig, FormField } from '../lib/templates'
 import { LampiranItem } from '../lib/letterRequests'
@@ -169,7 +169,7 @@ export function NewRequestModal({ onClose, onSuccess, resubmit }: NewRequestModa
   const [catatan, setCatatan] = useState('')
   const [lampiranList, setLampiranList] = useState<LampiranItem[]>([])
   const [linkInput, setLinkInput] = useState('')
-  const [uploadingLampiran, setUploadingLampiran] = useState(false)
+  const [uploadingFiles, setUploadingFiles] = useState<string[]>([])
   const [dragOver, setDragOver] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [errorMsg, setErrorMsg] = useState('')
@@ -202,29 +202,34 @@ export function NewRequestModal({ onClose, onSuccess, resubmit }: NewRequestModa
   const addRow = () => selected && setTableRows((prev) => [...prev, emptyRow(selected)])
   const removeRow = (index: number) => setTableRows((prev) => (prev.length > 1 ? prev.filter((_, i) => i !== index) : prev))
 
-  const uploadFiles = async (files: FileList | File[]) => {
-    setUploadingLampiran(true)
-    setErrorMsg('')
+  // Each file uploads independently and drops out of uploadingFiles as soon as
+  // it finishes, so a batch of files shows per-file progress instead of one
+  // all-or-nothing spinner.
+  const uploadOneFile = async (file: File) => {
+    setUploadingFiles((prev) => [...prev, file.name])
     try {
-      for (const file of Array.from(files)) {
-        const base64Content = await new Promise<string>((resolve, reject) => {
-          const reader = new FileReader()
-          reader.onload = () => resolve((reader.result as string).split(',')[1])
-          reader.onerror = reject
-          reader.readAsDataURL(file)
-        })
-        const { data, error } = await supabase.functions.invoke('upload-lampiran', {
-          body: { fileName: file.name, mimeType: file.type, base64Content, jenisSurat: selected?.name || (isLain ? 'Surat Lain' : '') },
-        })
-        if (error) throw new Error(await getFunctionErrorMessage(error, 'Gagal upload lampiran.'))
-        if (data?.error) throw new Error(data.error)
-        setLampiranList((prev) => [...prev, { type: 'file', url: data.url, name: file.name, driveFileId: data.driveFileId }])
-      }
+      const base64Content = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader()
+        reader.onload = () => resolve((reader.result as string).split(',')[1])
+        reader.onerror = reject
+        reader.readAsDataURL(file)
+      })
+      const { data, error } = await supabase.functions.invoke('upload-lampiran', {
+        body: { fileName: file.name, mimeType: file.type, base64Content, jenisSurat: selected?.name || (isLain ? 'Surat Lain' : '') },
+      })
+      if (error) throw new Error(await getFunctionErrorMessage(error, 'Gagal upload lampiran.'))
+      if (data?.error) throw new Error(data.error)
+      setLampiranList((prev) => [...prev, { type: 'file', url: data.url, name: file.name, driveFileId: data.driveFileId }])
     } catch (err: any) {
-      setErrorMsg(err.message || 'Gagal upload lampiran.')
+      setErrorMsg(`Gagal upload "${file.name}": ${err.message || 'Terjadi kesalahan tidak diketahui.'}`)
     } finally {
-      setUploadingLampiran(false)
+      setUploadingFiles((prev) => prev.filter((n) => n !== file.name))
     }
+  }
+
+  const uploadFiles = (files: FileList | File[]) => {
+    setErrorMsg('')
+    Array.from(files).forEach((file) => uploadOneFile(file))
   }
 
   const addLampiranLink = () => {
@@ -641,7 +646,7 @@ export function NewRequestModal({ onClose, onSuccess, resubmit }: NewRequestModa
                     setDragOver(false)
                     if (e.dataTransfer.files.length > 0) uploadFiles(e.dataTransfer.files)
                   }}
-                  className="rounded-xl border-2 border-dashed flex flex-col items-center justify-center gap-2 p-5 text-center cursor-pointer"
+                  className="rounded-xl border-2 border-dashed flex flex-col items-center justify-center gap-2 p-5 text-center cursor-pointer transition-colors"
                   style={{ borderColor: dragOver ? 'var(--accent-maroon-text)' : 'var(--card-border)', background: dragOver ? 'var(--accent-maroon-soft)' : 'var(--row-bg)' }}
                   onClick={() => document.getElementById('lampiran-file-input')?.click()}
                 >
@@ -650,11 +655,17 @@ export function NewRequestModal({ onClose, onSuccess, resubmit }: NewRequestModa
                     type="file"
                     multiple
                     className="hidden"
-                    onChange={(e) => e.target.files && uploadFiles(e.target.files)}
+                    onChange={(e) => { if (e.target.files) uploadFiles(e.target.files); e.target.value = '' }}
                   />
-                  <Upload size={20} style={{ color: 'var(--text-muted)' }} />
+                  {uploadingFiles.length > 0 ? (
+                    <Loader2 size={20} className="animate-spin" style={{ color: 'var(--accent-maroon-text)' }} />
+                  ) : (
+                    <Upload size={20} style={{ color: 'var(--text-muted)' }} />
+                  )}
                   <p className="text-sm font-semibold" style={{ color: 'var(--text-secondary)' }}>
-                    {uploadingLampiran ? 'Mengupload...' : 'Tarik file ke sini atau klik untuk pilih'}
+                    {uploadingFiles.length > 0
+                      ? `Mengupload ${uploadingFiles.length} file...`
+                      : 'Tarik file ke sini atau klik untuk pilih'}
                   </p>
                 </div>
 
@@ -671,8 +682,15 @@ export function NewRequestModal({ onClose, onSuccess, resubmit }: NewRequestModa
                   </button>
                 </div>
 
-                {lampiranList.length > 0 && (
+                {(lampiranList.length > 0 || uploadingFiles.length > 0) && (
                   <div className="space-y-1.5 mt-2">
+                    {uploadingFiles.map((name) => (
+                      <div key={name} className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm" style={{ background: 'var(--row-bg)', opacity: 0.7 }}>
+                        <Loader2 size={14} className="animate-spin" style={{ color: 'var(--accent-maroon-text)' }} />
+                        <span className="truncate flex-1" style={{ color: 'var(--text-secondary)' }}>{name}</span>
+                        <span className="text-xs" style={{ color: 'var(--text-muted)' }}>Mengupload...</span>
+                      </div>
+                    ))}
                     {lampiranList.map((item, i) => (
                       <div key={i} className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm" style={{ background: 'var(--row-bg)' }}>
                         {item.type === 'file' ? <Paperclip size={14} style={{ color: 'var(--text-muted)' }} /> : <LinkIcon size={14} style={{ color: 'var(--text-muted)' }} />}
@@ -693,10 +711,10 @@ export function NewRequestModal({ onClose, onSuccess, resubmit }: NewRequestModa
 
               <button
                 onClick={submitTemplateRequest}
-                disabled={submitting || !selected.google_doc_template_id}
+                disabled={submitting || uploadingFiles.length > 0 || !selected.google_doc_template_id}
                 className="btn-primary w-full disabled:opacity-50"
               >
-                {submitting ? 'Mengirim...' : 'Submit Request'}
+                {submitting ? 'Mengirim...' : uploadingFiles.length > 0 ? 'Menunggu upload lampiran...' : 'Submit Request'}
               </button>
             </div>
           )}
