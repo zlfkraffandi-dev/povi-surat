@@ -375,8 +375,8 @@ export function NewRequestModal({ onClose, onSuccess, resubmit }: NewRequestModa
       else if (f.type === 'date') demo[f.key] = new Date().toISOString().slice(0, 10)
       else if (f.type === 'time') demo[f.key] = '13:00'
       else if (f.type === 'number') demo[f.key] = formatRupiah('500000')
-      else if (f.type === 'textarea') demo[f.key] = 'Contoh deskripsi untuk keperluan testing.'
-      else demo[f.key] = `Contoh ${f.label}`
+      else if (f.type === 'textarea') demo[f.key] = f.placeholder || 'Contoh deskripsi untuk keperluan testing.'
+      else demo[f.key] = f.placeholder ? f.placeholder.replace(/^Contoh:\s*/i, '') : `Contoh ${f.label}`
     })
     setFormData(demo)
     if (selected.has_repeatable_table && selected.repeatable_table_config) {
@@ -704,14 +704,14 @@ export function NewRequestModal({ onClose, onSuccess, resubmit }: NewRequestModa
                 )}
               </div>
 
-              {!selected.google_doc_template_id && (
+              {!selected.google_doc_template_id && !selected.doc_id_by_option && (
                 <p className="text-sm" style={{ color: '#fb7185' }}>Template dokumen belum diset, tidak bisa submit dulu.</p>
               )}
               {errorMsg && <p className="text-sm font-semibold" style={{ color: '#fb7185' }}>{errorMsg}</p>}
 
               <button
                 onClick={submitTemplateRequest}
-                disabled={submitting || uploadingFiles.length > 0 || !selected.google_doc_template_id}
+                disabled={submitting || uploadingFiles.length > 0 || (!selected.google_doc_template_id && !selected.doc_id_by_option)}
                 className="btn-primary w-full disabled:opacity-50"
               >
                 {submitting ? 'Mengirim...' : uploadingFiles.length > 0 ? 'Menunggu upload lampiran...' : 'Submit Request'}
