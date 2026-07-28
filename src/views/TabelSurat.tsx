@@ -107,7 +107,10 @@ export function TabelSurat({ requests, loading, onApprove, onMarkTTD, onRevisi, 
                   <option value="pending">Pending</option>
                   <option value="proses_ttd">Proses TTD</option>
                   <option value="approved">Approved</option>
-                  <option value="revisi">Revisi</option>
+                  {/* Once nomor surat + tanggal are locked in at Proses TTD, sending it
+                      back to Revisi would orphan that number in an abandoned doc copy
+                      (resubmit regenerates a fresh doc) — so it's final from here. */}
+                  {r.status !== 'proses_ttd' && <option value="revisi">Revisi</option>}
                 </select>
               </div>
             </div>
@@ -182,7 +185,10 @@ export function TabelSurat({ requests, loading, onApprove, onMarkTTD, onRevisi, 
                   <option value="pending">Pending</option>
                   <option value="proses_ttd">Proses TTD</option>
                   <option value="approved">Approved</option>
-                  <option value="revisi">Revisi</option>
+                  {/* Once nomor surat + tanggal are locked in at Proses TTD, sending it
+                      back to Revisi would orphan that number in an abandoned doc copy
+                      (resubmit regenerates a fresh doc) — so it's final from here. */}
+                  {r.status !== 'proses_ttd' && <option value="revisi">Revisi</option>}
                 </select>
               </span>
             </div>

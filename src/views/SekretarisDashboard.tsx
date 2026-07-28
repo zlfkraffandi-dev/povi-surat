@@ -363,15 +363,17 @@ export function SekretarisDashboard({ profile }: { profile: UserProfile }) {
                           >
                             <CheckCircle size={15} />
                           </button>
-                          <button
-                            onClick={() => setRevisiTargetId(r.id)}
-                            disabled={busyId === r.id}
-                            title="Minta Revisi"
-                            className="w-8 h-8 rounded-lg flex items-center justify-center disabled:opacity-50"
-                            style={{ background: 'rgba(244,63,94,0.16)', color: '#fb7185' }}
-                          >
-                            <XCircle size={15} />
-                          </button>
+                          {r.status !== 'proses_ttd' && (
+                            <button
+                              onClick={() => setRevisiTargetId(r.id)}
+                              disabled={busyId === r.id}
+                              title="Minta Revisi"
+                              className="w-8 h-8 rounded-lg flex items-center justify-center disabled:opacity-50"
+                              style={{ background: 'rgba(244,63,94,0.16)', color: '#fb7185' }}
+                            >
+                              <XCircle size={15} />
+                            </button>
+                          )}
                         </>
                       )}
                     </div>
