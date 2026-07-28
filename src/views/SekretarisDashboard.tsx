@@ -9,10 +9,11 @@ import { RevisiModal } from '../components/RevisiModal'
 import { DetailDrawer } from '../components/DetailDrawer'
 import { LoadingOverlay } from '../components/LoadingOverlay'
 import { ResultModal } from '../components/ResultModal'
+import { ApproveUploadModal } from '../components/ApproveUploadModal'
 import { TabelSurat } from './TabelSurat'
 import { RequesterDashboardContent } from './RequesterDashboard'
 import { LetterRequestRow, enrichRequest, daysUntil } from '../lib/letterRequests'
-import { getFunctionErrorMessage } from '../lib/functionError'
+import { getFunctionErrorMessage, sanitizeErrorMessage } from '../lib/functionError'
 
 const KATEGORI_BY_KODE: Record<string, string> = { '01': 'permohonan', '02': 'undangan', '03': 'sertifikat' }
 
@@ -40,6 +41,7 @@ export function SekretarisDashboard({ profile }: { profile: UserProfile }) {
   })
   const [detailId, setDetailId] = useState<string | null>(null)
   const [revisiTargetId, setRevisiTargetId] = useState<string | null>(null)
+  const [approveTarget, setApproveTarget] = useState<LetterRequestRow | null>(null)
   const [busyId, setBusyId] = useState<string | null>(null)
   const [approving, setApproving] = useState(false)
   const [result, setResult] = useState<{ type: 'success' | 'error'; title: string; message: string } | null>(null)
@@ -81,31 +83,46 @@ export function SekretarisDashboard({ profile }: { profile: UserProfile }) {
   const handleMarkTTD = async (r: LetterRequestRow) => {
     setBusyId(r.id)
     try {
+      // mark-ttd assigns the real nomor surat (same atomic counter approve-surat
+      // uses) and writes it + today's date into the doc — this is the point the
+      // printed copy is finalized for a wet-ink signature, so approve-surat
+      // must not generate a second number for it later.
       const { data, error: fnError } = await supabase.functions.invoke('mark-ttd', {
-        body: { docId: r.google_doc_id },
+        body: {
+          docId: r.google_doc_id,
+          jenis_kop: r.letter_templates?.kop_type,
+          kategori_surat: r.letter_templates?.kode_surat ? KATEGORI_BY_KODE[r.letter_templates.kode_surat] : undefined,
+        },
       })
       if (fnError) throw new Error(await getFunctionErrorMessage(fnError, 'Gagal memproses TTD.'))
       if (data?.error) throw new Error(data.error)
 
       const { error } = await supabase
         .from('letter_requests')
-        .update({ status: 'proses_ttd', tanggal_surat: new Date().toISOString().slice(0, 10) })
+        .update({ status: 'proses_ttd', tanggal_surat: new Date().toISOString().slice(0, 10), nomor_surat: data.nomor_surat })
         .eq('id', r.id)
       if (error) throw error
 
       load()
-      setResult({ type: 'success', title: 'Diproses untuk TTD', message: `Tanggal surat diisi ${data.tanggal_surat}. Surat menunggu tanda tangan fisik sebelum di-Approve.` })
+      setResult({ type: 'success', title: 'Diproses untuk TTD', message: `Nomor surat ${data.nomor_surat} telah dikunci pada dokumen. Menunggu tanda tangan fisik sebelum di-Approve.` })
     } catch (err: any) {
-      setResult({ type: 'error', title: 'Gagal Memproses TTD', message: err.message || 'Terjadi kesalahan tidak diketahui.' })
+      setResult({ type: 'error', title: 'Gagal Memproses TTD', message: sanitizeErrorMessage(err.message || '', 'Gagal memproses TTD.') })
     } finally {
       setBusyId(null)
     }
   }
 
-  const handleApprove = async (r: LetterRequestRow) => {
+  const handleApprove = (r: LetterRequestRow) => {
+    // Semua approval (baik dari pending maupun proses_ttd) wajib melampirkan bukti fisik TTD.
+    setApproveTarget(r)
+  }
+
+  const doApprove = async (r: LetterRequestRow, uploadedLampiran: any) => {
+    setApproveTarget(null)
     setBusyId(r.id)
     setApproving(true)
     try {
+      const mergedLampiran = uploadedLampiran ? [...(r.lampiran || []), uploadedLampiran] : r.lampiran
       const { data, error: fnError } = await supabase.functions.invoke('approve-surat', {
         body: {
           docId: r.google_doc_id,
@@ -118,7 +135,7 @@ export function SekretarisDashboard({ profile }: { profile: UserProfile }) {
           // sent for signature — approve-surat must not overwrite it with
           // today's date.
           skipDateFill: r.status === 'proses_ttd',
-          lampiran: r.lampiran,
+          lampiran: mergedLampiran,
         },
       })
       if (fnError) throw new Error(await getFunctionErrorMessage(fnError, 'Gagal menyetujui surat.'))
@@ -126,14 +143,14 @@ export function SekretarisDashboard({ profile }: { profile: UserProfile }) {
 
       const { error } = await supabase
         .from('letter_requests')
-        .update({ status: 'approved', current_folder: 'approved', drive_file_id: data.pdf_file_id, lampiran: data.lampiran })
+        .update({ status: 'approved', current_folder: 'approved', drive_file_id: data.pdf_file_id, lampiran: mergedLampiran })
         .eq('id', r.id)
       if (error) throw error
 
       load()
-      setResult({ type: 'success', title: 'Surat Disetujui', message: `Nomor surat ${r.nomor_surat} disetujui. File PDF sudah dipindahkan ke folder Approved.` })
+      setResult({ type: 'success', title: 'Surat Disetujui', message: `Nomor surat ${r.nomor_surat} disetujui beserta bukti TTD. File PDF sudah dipindahkan ke folder Approved.` })
     } catch (err: any) {
-      setResult({ type: 'error', title: 'Gagal Menyetujui Surat', message: err.message || 'Terjadi kesalahan tidak diketahui.' })
+      setResult({ type: 'error', title: 'Gagal Menyetujui Surat', message: sanitizeErrorMessage(err.message || '', 'Gagal menyetujui surat.') })
     } finally {
       setBusyId(null)
       setApproving(false)
@@ -153,7 +170,7 @@ export function SekretarisDashboard({ profile }: { profile: UserProfile }) {
       load()
       setResult({ type: 'success', title: 'Revisi Terkirim', message: 'Catatan revisi terkirim ke requester.' })
     } catch (err: any) {
-      setResult({ type: 'error', title: 'Gagal Mengirim Revisi', message: err.message || 'Terjadi kesalahan tidak diketahui.' })
+      setResult({ type: 'error', title: 'Gagal Mengirim Revisi', message: sanitizeErrorMessage(err.message || '', 'Gagal mengirim revisi.') })
     } finally {
       setBusyId(null)
     }
@@ -373,6 +390,15 @@ export function SekretarisDashboard({ profile }: { profile: UserProfile }) {
           onCancel={() => setRevisiTargetId(null)}
           onConfirm={confirmRevisi}
           submitting={busyId === revisiTargetId}
+        />
+      )}
+
+      {approveTarget && (
+        <ApproveUploadModal
+          namaSurat={approveTarget.letter_templates?.name || approveTarget.template_id || 'Surat'}
+          isOptional={approveTarget.status === 'pending'}
+          onClose={() => setApproveTarget(null)}
+          onSuccess={(lampiran) => doApprove(approveTarget, lampiran)}
         />
       )}
 

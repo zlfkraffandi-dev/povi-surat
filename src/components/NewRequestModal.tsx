@@ -3,7 +3,7 @@ import { X, Plus, Trash2, Upload, Link as LinkIcon, Paperclip, Loader2 } from 'l
 import { supabase, getCurrentUserProfile } from '../lib/supabase'
 import { Template, RepeatableConfig, FormField } from '../lib/templates'
 import { LampiranItem } from '../lib/letterRequests'
-import { getFunctionErrorMessage } from '../lib/functionError'
+import { getFunctionErrorMessage, sanitizeErrorMessage } from '../lib/functionError'
 import { LoadingOverlay } from './LoadingOverlay'
 import { ResultModal } from './ResultModal'
 
@@ -104,6 +104,12 @@ function formatPlaceholders(data: Record<string, string>, schema: FormField[]): 
   return out
 }
 
+const SECTION_HINTS: Record<string, string> = {
+  'Loading In': 'Waktu bongkar muat / persiapan memasukkan barang ke venue',
+  'Loading Out': 'Waktu bongkar muat / mengeluarkan barang dari venue setelah acara',
+  'Exhibition': 'Waktu pelaksanaan pameran / acara utama',
+}
+
 // Groups consecutive fields marked `compact` into rows of up to 3 (e.g. Hari/Tanggal/Waktu
 // triplets), others stay full-width. Capped at 3 so back-to-back triplets (like the four
 // Loading In/Exhibition/Loading Out rows in Permohonan Penyelenggaraan) don't merge into one row.
@@ -170,6 +176,7 @@ export function NewRequestModal({ onClose, onSuccess, resubmit }: NewRequestModa
   const [lampiranList, setLampiranList] = useState<LampiranItem[]>([])
   const [linkInput, setLinkInput] = useState('')
   const [uploadingFiles, setUploadingFiles] = useState<string[]>([])
+  const [showPreview, setShowPreview] = useState(false)
   const [dragOver, setDragOver] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [errorMsg, setErrorMsg] = useState('')
@@ -191,6 +198,73 @@ export function NewRequestModal({ onClose, onSuccess, resubmit }: NewRequestModa
   const selected = templates.find((t) => t.id === selectedId) || null
   const isLain = selectedId === 'lain'
 
+  // Auto-save draft to localStorage (only for new requests, not resubmit)
+  const draftKey = selected && !resubmit ? `draft_${selected.id}` : null
+
+  // Restore draft on template select
+  useEffect(() => {
+    if (!draftKey || resubmit) return
+    try {
+      const saved = localStorage.getItem(draftKey)
+      if (!saved) return
+      const draft = JSON.parse(saved)
+      if (draft.formData && Object.keys(formData).length === 0) setFormData(draft.formData)
+      if (draft.tableRows) setTableRows(draft.tableRows)
+      if (draft.deadline && !deadline) setDeadline(draft.deadline)
+      if (draft.picPhone && !picPhone) setPicPhone(draft.picPhone)
+      if (draft.divisi && !divisi) setDivisi(draft.divisi)
+      if (draft.catatan && !catatan) setCatatan(draft.catatan)
+    } catch {}
+  }, [draftKey])
+
+  const fillDemoData = () => {
+    if (!selected && !isLain) return
+    const demo = isLain
+      ? {
+          kepada: 'Bapak/Ibu Dosen',
+          hal: 'Undangan Kegiatan',
+          tanggal: new Date().toISOString().slice(0, 10),
+          waktuTempat: '08:00 WIB, Ruang 1',
+          namaKegiatan: 'Demo Acara',
+          picPhone: '081234567890',
+        }
+      : selected?.form_schema.reduce((acc, f) => {
+          let val = 'Demo Data'
+          if (f.type === 'date') val = new Date().toISOString().slice(0, 10)
+          if (f.type === 'time') val = '13:00'
+          if (f.type === 'number') val = '100.000'
+          if (f.type === 'select' && f.options) val = f.options[0]
+          return { ...acc, [f.key]: val }
+        }, {}) || {}
+    if (isLain) {
+      setLainKepada(demo.kepada)
+      setLainHal(demo.hal)
+      setLainTanggal(demo.tanggal)
+      setLainWaktuTempat(demo.waktuTempat)
+      setLainNamaKegiatan(demo.namaKegiatan)
+      setLainPicPhone(demo.picPhone)
+    } else {
+      setFormData(demo as Record<string, string>)
+      setDeadline(new Date(Date.now() + 86400000 * 3).toISOString().slice(0, 10))
+      setPicPhone('081234567890')
+      setDivisi(DIVISI_OPTIONS[0])
+    }
+  }
+
+  // Save draft on change (debounced via timeout)
+  useEffect(() => {
+    if (!draftKey || resubmit) return
+    const timer = setTimeout(() => {
+      try {
+        localStorage.setItem(draftKey, JSON.stringify({ formData, tableRows, deadline, picPhone, divisi, catatan }))
+      } catch {}
+    }, 500)
+    return () => clearTimeout(timer)
+  }, [draftKey, formData, tableRows, deadline, picPhone, divisi, catatan])
+
+  // Clear draft on successful submit
+  const clearDraft = () => { if (draftKey) localStorage.removeItem(draftKey) }
+
   const handleSelectTemplate = (id: string) => {
     setSelectedId(id)
     setErrorMsg('')
@@ -202,10 +276,16 @@ export function NewRequestModal({ onClose, onSuccess, resubmit }: NewRequestModa
   const addRow = () => selected && setTableRows((prev) => [...prev, emptyRow(selected)])
   const removeRow = (index: number) => setTableRows((prev) => (prev.length > 1 ? prev.filter((_, i) => i !== index) : prev))
 
+  const MAX_FILE_SIZE = 5 * 1024 * 1024 // 5 MB
+
   // Each file uploads independently and drops out of uploadingFiles as soon as
   // it finishes, so a batch of files shows per-file progress instead of one
   // all-or-nothing spinner.
   const uploadOneFile = async (file: File) => {
+    if (file.size > MAX_FILE_SIZE) {
+      setErrorMsg(`File "${file.name}" terlalu besar (${(file.size / 1024 / 1024).toFixed(1)} MB). Maksimal 5 MB.`)
+      return
+    }
     setUploadingFiles((prev) => [...prev, file.name])
     try {
       const base64Content = await new Promise<string>((resolve, reject) => {
@@ -221,7 +301,7 @@ export function NewRequestModal({ onClose, onSuccess, resubmit }: NewRequestModa
       if (data?.error) throw new Error(data.error)
       setLampiranList((prev) => [...prev, { type: 'file', url: data.url, name: file.name, driveFileId: data.driveFileId }])
     } catch (err: any) {
-      setErrorMsg(`Gagal upload "${file.name}": ${err.message || 'Terjadi kesalahan tidak diketahui.'}`)
+      setErrorMsg(`Gagal upload "${file.name}": ${sanitizeErrorMessage(err.message || '', 'Gagal upload lampiran.')}`)
     } finally {
       setUploadingFiles((prev) => prev.filter((n) => n !== file.name))
     }
@@ -267,27 +347,37 @@ export function NewRequestModal({ onClose, onSuccess, resubmit }: NewRequestModa
       onSuccess()
       setResult({ type: 'success', title: 'Draft Tersimpan', message: 'Draft surat lain tersimpan, akan diproses manual oleh sekretaris.' })
     } catch (err: any) {
-      setResult({ type: 'error', title: 'Gagal Menyimpan Draft', message: err.message || 'Terjadi kesalahan tidak diketahui.' })
+      setResult({ type: 'error', title: 'Gagal Menyimpan Draft', message: sanitizeErrorMessage(err.message || '', 'Gagal menyimpan draft.') })
     } finally {
       setSubmitting(false)
     }
   }
 
-  const submitTemplateRequest = async () => {
-    if (!selected) { setErrorMsg('Pilih jenis surat terlebih dahulu.'); return }
+  const validateForm = (): boolean => {
+    if (!selected) { setErrorMsg('Pilih jenis surat terlebih dahulu.'); return false }
     for (const f of selected.form_schema) {
       if (!formData[f.key] || !String(formData[f.key]).trim()) {
         setErrorMsg(`Field "${f.label}" wajib diisi.`)
-        return
+        return false
       }
     }
     if (selected.has_repeatable_table) {
       const filled = tableRows.some((r) => Object.values(r).some((v) => v && v.trim()))
-      if (!filled) { setErrorMsg(`Isi minimal 1 baris pada "${selected.repeatable_table_config?.label}".`); return }
+      if (!filled) { setErrorMsg(`Isi minimal 1 baris pada "${selected.repeatable_table_config?.label}".`); return false }
     }
-    if (!deadline) { setErrorMsg('Deadline dibutuhkan wajib diisi.'); return }
-    if (!picPhone.trim()) { setErrorMsg('Nomor telepon PIC wajib diisi.'); return }
-    if (!divisi) { setErrorMsg('Divisi wajib dipilih.'); return }
+    if (!deadline) { setErrorMsg('Deadline dibutuhkan wajib diisi.'); return false }
+    if (!picPhone.trim()) { setErrorMsg('Nomor telepon PIC wajib diisi.'); return false }
+    if (!divisi) { setErrorMsg('Divisi wajib dipilih.'); return false }
+    return true
+  }
+
+  const handlePreview = () => {
+    setErrorMsg('')
+    if (validateForm()) setShowPreview(true)
+  }
+
+  const submitTemplateRequest = async () => {
+    if (!selected || !validateForm()) return
 
     setSubmitting(true)
     setErrorMsg('')
@@ -302,8 +392,26 @@ export function NewRequestModal({ onClose, onSuccess, resubmit }: NewRequestModa
       if (!templateDocId) throw new Error(`Dokumen untuk pilihan "${selectField ? formData[selectField.key] : ''}" belum tersedia.`)
 
       if (resubmit) {
-        // ponytail: resubmit reuses the existing doc/nomor surat (no re-generation);
-        // full doc regeneration on revisi would need a new edge function, out of scope for now.
+        // Regenerate the Google Doc with updated data so the document stays in
+        // sync with the revised form_data.
+        const { data, error: fnError } = await supabase.functions.invoke('generate-surat', {
+          body: {
+            template_doc_id: templateDocId,
+            template_slug: selected.slug,
+            jenis_kop: selected.kop_type,
+            jenis_surat: selected.name,
+            kategori_surat: KATEGORI_BY_KODE[selected.kode_surat],
+            requester: profile.name,
+            divisi,
+            pic_phone: picPhone,
+            placeholders: formatPlaceholders(formData, selected.form_schema),
+            due_date: deadline,
+            table_data: selected.has_repeatable_table ? tableRows : null,
+          },
+        })
+        if (fnError) throw new Error(await getFunctionErrorMessage(fnError, 'Gagal membuat ulang surat.'))
+        if (data?.error) throw new Error(data.error)
+
         const { error } = await supabase
           .from('letter_requests')
           .update({
@@ -314,11 +422,15 @@ export function NewRequestModal({ onClose, onSuccess, resubmit }: NewRequestModa
             status: 'pending',
             revision_note: null,
             lampiran: lampiranList.length > 0 ? lampiranList : null,
+            google_doc_id: data.doc_id,
+            google_doc_url: `https://docs.google.com/document/d/${data.doc_id}/edit`,
+            nomor_surat: data.nomor_surat,
           })
           .eq('id', resubmit.id)
         if (error) throw error
         onSuccess()
-        setResult({ type: 'success', title: 'Berhasil Diajukan Ulang', message: 'Request berhasil diajukan ulang, menunggu review sekretaris.' })
+        clearDraft()
+        setResult({ type: 'success', title: 'Berhasil Diajukan Ulang', message: `Dokumen diperbarui dengan data terbaru (${data.nomor_surat}). Menunggu review sekretaris.` })
       } else {
         const { data, error: fnError } = await supabase.functions.invoke('generate-surat', {
           body: {
@@ -355,41 +467,14 @@ export function NewRequestModal({ onClose, onSuccess, resubmit }: NewRequestModa
         })
         if (insertError) throw insertError
         onSuccess()
+        clearDraft()
         setResult({ type: 'success', title: 'Surat Berhasil Diajukan', message: `Nomor surat ${data.nomor_surat} telah dibuat. Menunggu review sekretaris.` })
       }
     } catch (err: any) {
-      setResult({ type: 'error', title: 'Gagal Mengirim Request', message: err.message || 'Terjadi kesalahan tidak diketahui.' })
+      setResult({ type: 'error', title: 'Gagal Mengirim Request', message: sanitizeErrorMessage(err.message || '', 'Gagal mengirim request.') })
     } finally {
       setSubmitting(false)
     }
-  }
-
-  // ponytail: temporary QA helper — autofills the form with sample data so
-  // testing doesn't require typing every field by hand. Delete this whole
-  // function + its button once all templates are verified end-to-end.
-  const fillDemoData = () => {
-    if (!selected) return
-    const demo: Record<string, string> = {}
-    selected.form_schema.forEach((f) => {
-      if (f.type === 'select') demo[f.key] = f.options?.[0] || ''
-      else if (f.type === 'date') demo[f.key] = new Date().toISOString().slice(0, 10)
-      else if (f.type === 'time') demo[f.key] = '13:00'
-      else if (f.type === 'number') demo[f.key] = formatRupiah('500000')
-      else if (f.type === 'textarea') demo[f.key] = f.placeholder || 'Contoh deskripsi untuk keperluan testing.'
-      else demo[f.key] = f.placeholder ? f.placeholder.replace(/^Contoh:\s*/i, '') : `Contoh ${f.label}`
-    })
-    setFormData(demo)
-    if (selected.has_repeatable_table && selected.repeatable_table_config) {
-      const row: Record<string, string> = {}
-      selected.repeatable_table_config.columns.forEach((col) => {
-        row[col.key] = col.type === 'time' ? '13:00' : col.type === 'date' ? new Date().toISOString().slice(0, 10) : col.type === 'number' ? '10' : `Contoh ${col.label}`
-      })
-      setTableRows([row])
-    }
-    setDeadline(new Date(Date.now() + 7 * 86400000).toISOString().slice(0, 10))
-    setPicPhone('081234567890')
-    setDivisi(DIVISI_OPTIONS[0])
-    setCatatan('Contoh catatan untuk testing.')
   }
 
   const kopFs = templates.filter((t) => t.kop_type === 'FS')
@@ -405,8 +490,9 @@ export function NewRequestModal({ onClose, onSuccess, resubmit }: NewRequestModa
         {submitting && <LoadingOverlay text={isLain ? 'Menyimpan draft...' : 'Membuat surat & mengisi dokumen...'} />}
 
         <div className="p-6 flex items-center justify-between border-b" style={{ borderColor: 'var(--card-border)' }}>
-          <h2 className="text-lg font-extrabold" style={{ color: 'var(--text-primary)' }}>
+          <h2 className="text-lg font-extrabold flex items-center gap-3" style={{ color: 'var(--text-primary)' }}>
             {resubmit ? 'Ajukan Ulang Surat' : 'Ajukan Surat Baru'}
+            {!resubmit && <button onClick={fillDemoData} className="text-[10px] bg-red-100 text-red-600 px-2 py-1 rounded font-bold uppercase tracking-wider">Isi Demo</button>}
           </h2>
           <button onClick={onClose} className="w-8 h-8 rounded-full flex items-center justify-center" style={{ color: 'var(--text-muted)' }}>
             <X size={18} />
@@ -434,18 +520,6 @@ export function NewRequestModal({ onClose, onSuccess, resubmit }: NewRequestModa
                 </optgroup>
               </select>
             </div>
-          )}
-
-          {/* ponytail: temporary QA helper button, delete alongside fillDemoData once all templates are locked */}
-          {selected && !resubmit && (
-            <button
-              type="button"
-              onClick={fillDemoData}
-              className="text-xs font-semibold underline"
-              style={{ color: 'var(--text-muted)' }}
-            >
-              Isi Contoh (Demo)
-            </button>
           )}
 
           {isLain && (
@@ -502,15 +576,22 @@ export function NewRequestModal({ onClose, onSuccess, resubmit }: NewRequestModa
                   return (
                     <div key={gi} className={showHeading ? 'pt-2' : ''}>
                       {showHeading && (
-                        <h4 className="text-sm font-bold mb-2" style={{ color: 'var(--text-primary)' }}>{section}</h4>
+                        <div className="mb-2">
+                          <h4 className="text-sm font-bold" style={{ color: 'var(--text-primary)' }}>{section}</h4>
+                          {SECTION_HINTS[section!.replace(/\s+H-?\d+$/i, '')] && (
+                            <p className="text-[11px] mt-0.5" style={{ color: 'var(--text-muted)', fontStyle: 'italic' }}>
+                              {SECTION_HINTS[section!.replace(/\s+H-?\d+$/i, '')]}
+                            </p>
+                          )}
+                        </div>
                       )}
-                      <div className={group[0].compact ? 'flex gap-3' : ''}>
+                      <div className={group[0].compact ? 'flex flex-wrap gap-3' : ''}>
                         {group.map((field) => {
                           const value = formData[field.key] || ''
                           const filled = value.trim().length > 0
                           const glowClass = filled ? 'input-filled' : ''
                           return (
-                            <div key={field.key} className={group[0].compact ? 'flex-1' : ''}>
+                            <div key={field.key} className={group[0].compact ? 'flex-1 min-w-[140px]' : ''}>
                               <label className="block text-sm font-semibold mb-2" style={{ color: 'var(--text-secondary)' }}>{splitLabel(field.label).short}</label>
                               {field.type === 'select' ? (
                                 <select
@@ -681,6 +762,9 @@ export function NewRequestModal({ onClose, onSuccess, resubmit }: NewRequestModa
                     <LinkIcon size={14} /> Tambah
                   </button>
                 </div>
+                <p className="text-[11px] mt-1" style={{ color: 'var(--text-muted)' }}>
+                  ⚠️ Pastikan link bisa diakses siapa saja (Anyone with the link). Link Google Drive pribadi akan muncul "Access Denied" bagi sekretaris.
+                </p>
 
                 {(lampiranList.length > 0 || uploadingFiles.length > 0) && (
                   <div className="space-y-1.5 mt-2">
@@ -709,13 +793,60 @@ export function NewRequestModal({ onClose, onSuccess, resubmit }: NewRequestModa
               )}
               {errorMsg && <p className="text-sm font-semibold" style={{ color: '#fb7185' }}>{errorMsg}</p>}
 
-              <button
-                onClick={submitTemplateRequest}
-                disabled={submitting || uploadingFiles.length > 0 || (!selected.google_doc_template_id && !selected.doc_id_by_option)}
-                className="btn-primary w-full disabled:opacity-50"
-              >
-                {submitting ? 'Mengirim...' : uploadingFiles.length > 0 ? 'Menunggu upload lampiran...' : 'Submit Request'}
-              </button>
+              {showPreview ? (
+                <div className="space-y-3">
+                  <div className="p-4 rounded-xl space-y-2" style={{ background: 'var(--row-bg)', border: '1px solid var(--card-border)' }}>
+                    <h4 className="text-sm font-bold" style={{ color: 'var(--text-primary)' }}>📋 Ringkasan Data — Periksa sebelum submit</h4>
+                    {selected.form_schema.map((f) => (
+                      <div key={f.key} className="flex justify-between gap-2 text-sm">
+                        <span style={{ color: 'var(--text-muted)' }}>{splitLabel(f.label).short}</span>
+                        <span className="font-semibold text-right" style={{ color: 'var(--text-primary)' }}>{formData[f.key] || '-'}</span>
+                      </div>
+                    ))}
+                    {selected.has_repeatable_table && selected.repeatable_table_config && (
+                      <div className="pt-1">
+                        <span className="text-xs font-bold" style={{ color: 'var(--text-muted)' }}>{selected.repeatable_table_config.label}: {tableRows.length} baris</span>
+                      </div>
+                    )}
+                    <div className="flex justify-between gap-2 text-sm pt-1 border-t" style={{ borderColor: 'var(--card-border)' }}>
+                      <span style={{ color: 'var(--text-muted)' }}>Divisi</span>
+                      <span className="font-semibold" style={{ color: 'var(--text-primary)' }}>{divisi}</span>
+                    </div>
+                    <div className="flex justify-between gap-2 text-sm">
+                      <span style={{ color: 'var(--text-muted)' }}>Deadline</span>
+                      <span className="font-semibold" style={{ color: 'var(--text-primary)' }}>{deadline}</span>
+                    </div>
+                    <div className="flex justify-between gap-2 text-sm">
+                      <span style={{ color: 'var(--text-muted)' }}>PIC Phone</span>
+                      <span className="font-semibold" style={{ color: 'var(--text-primary)' }}>{picPhone}</span>
+                    </div>
+                    {lampiranList.length > 0 && (
+                      <div className="flex justify-between gap-2 text-sm">
+                        <span style={{ color: 'var(--text-muted)' }}>Lampiran</span>
+                        <span className="font-semibold" style={{ color: 'var(--text-primary)' }}>{lampiranList.length} file</span>
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex gap-2">
+                    <button onClick={() => setShowPreview(false)} className="btn-outline flex-1">← Kembali Edit</button>
+                    <button
+                      onClick={submitTemplateRequest}
+                      disabled={submitting}
+                      className="btn-primary flex-1 disabled:opacity-50"
+                    >
+                      {submitting ? 'Mengirim...' : 'Konfirmasi & Submit'}
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <button
+                  onClick={handlePreview}
+                  disabled={uploadingFiles.length > 0 || (!selected.google_doc_template_id && !selected.doc_id_by_option)}
+                  className="btn-primary w-full disabled:opacity-50"
+                >
+                  {uploadingFiles.length > 0 ? 'Menunggu upload lampiran...' : 'Preview & Submit'}
+                </button>
+              )}
             </div>
           )}
         </div>

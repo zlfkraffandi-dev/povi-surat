@@ -31,6 +31,14 @@ export interface LetterRequestRow {
 
 export const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des']
 
+export const generateDraftNomor = (urut: number, kode: string, kop: string): string => {
+  const roman = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X', 'XI', 'XII']
+  const padded = String(urut).padStart(3, '0')
+  const month = roman[new Date().getMonth()]
+  const year = new Date().getFullYear()
+  return `${padded}/${kode}-${kop}/${month}/${year}`
+}
+
 export function fmtDate(iso: string | null): string {
   if (!iso) return '-'
   const d = new Date(iso + 'T00:00:00')

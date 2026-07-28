@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { LayoutGrid, Hourglass, CheckCircle2, Pencil, Search, Folder, Download, Plus } from 'lucide-react'
+import { LayoutGrid, Hourglass, CheckCircle2, Pencil, ClipboardSignature, Search, Folder, Download, Plus } from 'lucide-react'
 import { supabase, UserProfile } from '../lib/supabase'
 import { useToast } from '../context/ToastContext'
 import { MainLayout } from '../layouts/MainLayout'
@@ -20,6 +20,7 @@ interface SuratLainDraft {
 const FILTERS = [
   { value: 'all', label: 'Semua' },
   { value: 'pending', label: 'Pending' },
+  { value: 'proses_ttd', label: 'Proses TTD' },
   { value: 'approved', label: 'Approved' },
   { value: 'revisi', label: 'Revisi' },
 ]
@@ -55,7 +56,7 @@ export function RequesterDashboardContent({ profile }: { profile: UserProfile })
 
   useEffect(load, [profile.id])
 
-  const counts = { pending: 0, approved: 0, revisi: 0 }
+  const counts = { pending: 0, proses_ttd: 0, approved: 0, revisi: 0 }
   requests.forEach((r) => { if (r.status in counts) (counts as any)[r.status]++ })
 
   let filtered = requests
@@ -66,13 +67,10 @@ export function RequesterDashboardContent({ profile }: { profile: UserProfile })
   }
   const enriched = filtered.map((r) => enrichRequest(r, false))
 
-  let filteredDrafts: SuratLainDraft[] = []
-  if (filterStatus === 'all') {
-    filteredDrafts = drafts
-    if (search.trim()) {
-      const q = search.toLowerCase()
-      filteredDrafts = filteredDrafts.filter((d) => d.hal.toLowerCase().includes(q) || d.nama_kegiatan.toLowerCase().includes(q))
-    }
+  let filteredDrafts = drafts
+  if (search.trim()) {
+    const q = search.toLowerCase()
+    filteredDrafts = filteredDrafts.filter((d) => d.hal.toLowerCase().includes(q) || d.nama_kegiatan.toLowerCase().includes(q))
   }
 
   const isEmpty = enriched.length === 0 && filteredDrafts.length === 0
@@ -99,8 +97,9 @@ export function RequesterDashboardContent({ profile }: { profile: UserProfile })
         </button>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
         <StatCard label="Pending" value={counts.pending} icon={Hourglass} color="#f59e0b" bg="rgba(245,158,11,0.16)" hoverBg="rgba(245,158,11,0.1)" />
+        <StatCard label="Proses TTD" value={counts.proses_ttd} icon={ClipboardSignature} color="#0891b2" bg="rgba(8,145,178,0.16)" hoverBg="rgba(8,145,178,0.1)" />
         <StatCard label="Approved" value={counts.approved} icon={CheckCircle2} color="#1d3557" bg="rgba(29,53,87,0.16)" hoverBg="rgba(29,53,87,0.1)" />
         <StatCard label="Revisi" value={counts.revisi} icon={Pencil} color="#fb7185" bg="rgba(244,63,94,0.16)" hoverBg="rgba(244,63,94,0.1)" />
       </div>
