@@ -63,45 +63,8 @@ function formatRupiah(input: string): string {
   return 'Rp ' + Number(digits).toLocaleString('id-ID')
 }
 
-const BULAN_INDONESIA = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember']
-
-// ISO yyyy-mm-dd (from <input type="date">) -> "26 Oktober 2026", matching the format
-// sekretaris asked for on every date placeholder in the letter templates.
-function formatIndoDate(iso: string): string {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(iso)) return iso
-  const [y, m, d] = iso.split('-').map(Number)
-  return `${d} ${BULAN_INDONESIA[m - 1]} ${y}`
-}
-
-// Applies Indonesian date formatting to every `date`-type field, and collapses any
-// "<BASE>_MULAI" / "<BASE>_SELESAI" field pair into a single "<BASE>" placeholder written
-// as a range (e.g. "13.00 - 15.00 WIB" for time fields, "Senin - Rabu" for text) — this way
-// the document template only ever needs the original single {{BASE}} placeholder.
-function formatPlaceholders(data: Record<string, string>, schema: FormField[]): Record<string, string> {
-  const typeByKey = new Map(schema.map((f) => [f.key, f.type]))
-  const out: Record<string, string> = {}
-  for (const [key, value] of Object.entries(data)) {
-    if (key.endsWith('_SELESAI') && typeByKey.has(key)) continue // folded into the _MULAI pass below
-    if (key.endsWith('_MULAI') && typeByKey.has(key)) {
-      const base = key.slice(0, -'_MULAI'.length)
-      const endKey = `${base}_SELESAI`
-      const type = typeByKey.get(key)
-      const endValue = data[endKey] || ''
-      if (type === 'date') {
-        const startFmt = formatIndoDate(value)
-        // Same start/end date (the common case) collapses to a single date
-        // instead of "27 Juli 2026 - 27 Juli 2026".
-        out[base] = !endValue || value === endValue ? startFmt : `${startFmt} - ${formatIndoDate(endValue)}`
-      } else if (type === 'time') {
-        out[base] = `${value} - ${endValue} WIB`
-      } else {
-        out[base] = `${value} - ${endValue}`
-      }
-      continue
-    }
-    out[key] = typeByKey.get(key) === 'date' ? formatIndoDate(value) : value
-  }
-  return out
+function formatPlaceholders(data: Record<string, string>, _schema: FormField[]): Record<string, string> {
+  return { ...data }
 }
 
 const SECTION_HINTS: Record<string, string> = {
@@ -230,8 +193,6 @@ export function NewRequestModal({ onClose, onSuccess, resubmit }: NewRequestModa
         }
       : selected?.form_schema.reduce((acc, f) => {
           let val = 'Demo Data'
-          if (f.type === 'date') val = new Date().toISOString().slice(0, 10)
-          if (f.type === 'time') val = '13:00'
           if (f.type === 'number') val = '100.000'
           if (f.type === 'select' && f.options) val = f.options[0]
           return { ...acc, [f.key]: val }
