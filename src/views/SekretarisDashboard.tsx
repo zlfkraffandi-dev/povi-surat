@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Home, LayoutGrid, Table2, Bell, Inbox, AlarmClock, CheckCircle2, BarChart3, Search, CheckCircle, XCircle, FileText, Download, ClipboardSignature } from 'lucide-react'
+import { Home, LayoutGrid, Table2, Bell, Inbox, AlarmClock, CheckCircle2, BarChart3, Search, CheckCircle, XCircle, FileText, Download, ClipboardSignature, Trash2 } from 'lucide-react'
 import { supabase, UserProfile } from '../lib/supabase'
 import { MainLayout } from '../layouts/MainLayout'
 import { StatCard } from '../components/StatCard'
@@ -171,6 +171,24 @@ export function SekretarisDashboard({ profile }: { profile: UserProfile }) {
       setResult({ type: 'success', title: 'Revisi Terkirim', message: 'Catatan revisi terkirim ke requester.' })
     } catch (err: any) {
       setResult({ type: 'error', title: 'Gagal Mengirim Revisi', message: sanitizeErrorMessage(err.message || '', 'Gagal mengirim revisi.') })
+    } finally {
+      setBusyId(null)
+    }
+  }
+
+  const handleDelete = async (r: LetterRequestRow) => {
+    const name = r.letter_templates?.name || 'surat ini'
+    if (!window.confirm(`Hapus ${name}? Google Docs, PDF, lampiran Drive, dan baris monitoring terkait juga akan dihapus permanen.`)) return
+    setBusyId(r.id)
+    try {
+      const { data, error } = await supabase.functions.invoke('delete-surat', { body: { id: r.id } })
+      if (error) throw new Error(await getFunctionErrorMessage(error, 'Gagal menghapus surat.'))
+      if (data?.error) throw new Error(data.error)
+      if (detailId === r.id) setDetailId(null)
+      load()
+      setResult({ type: 'success', title: 'Surat Dihapus', message: 'Record, Google Docs, PDF, lampiran Drive, dan baris monitoring terkait telah dihapus.' })
+    } catch (err: any) {
+      setResult({ type: 'error', title: 'Gagal Menghapus Surat', message: sanitizeErrorMessage(err.message || '', 'Gagal menghapus surat.') })
     } finally {
       setBusyId(null)
     }
@@ -376,6 +394,13 @@ export function SekretarisDashboard({ profile }: { profile: UserProfile }) {
                           )}
                         </>
                       )}
+                      {(r.status === 'pending' || r.status === 'revisi') && (
+                        <button onClick={() => handleDelete(r.raw)} disabled={busyId === r.id} title="Hapus surat"
+                          className="w-8 h-8 rounded-lg flex items-center justify-center disabled:opacity-50"
+                          style={{ background: 'rgba(244,63,94,0.16)', color: '#fb7185' }}>
+                          <Trash2 size={15} />
+                        </button>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -384,7 +409,7 @@ export function SekretarisDashboard({ profile }: { profile: UserProfile }) {
           )}
         </div>
       ) : (
-        <TabelSurat requests={requests} loading={loading} onApprove={handleApprove} onMarkTTD={handleMarkTTD} onRevisi={(id) => setRevisiTargetId(id)} onOpenDetail={setDetailId} busyId={busyId} />
+        <TabelSurat requests={requests} loading={loading} onApprove={handleApprove} onMarkTTD={handleMarkTTD} onRevisi={(id) => setRevisiTargetId(id)} onOpenDetail={setDetailId} onDelete={handleDelete} busyId={busyId} />
       )}
 
       {revisiTargetId && (
