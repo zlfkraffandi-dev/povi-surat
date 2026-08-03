@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Home, LayoutGrid, Table2, Bell, Inbox, AlarmClock, CheckCircle2, BarChart3, Search, CheckCircle, XCircle, FileText, Download, ClipboardSignature, Trash2 } from 'lucide-react'
+import { Home, LayoutGrid, Table2, Bell, Inbox, AlarmClock, CheckCircle2, BarChart3, Search, CheckCircle, XCircle, FileText, Download, ClipboardSignature, Archive, RotateCcw } from 'lucide-react'
 import { supabase, UserProfile } from '../lib/supabase'
 import { MainLayout } from '../layouts/MainLayout'
 import { StatCard } from '../components/StatCard'
@@ -26,8 +26,9 @@ const FILTERS = [
 ]
 
 export function SekretarisDashboard({ profile }: { profile: UserProfile }) {
-  const [tab, setTab] = useState<'dashboard' | 'monitoring' | 'table'>('dashboard')
+  const [tab, setTab] = useState<'dashboard' | 'monitoring' | 'table' | 'archive'>('dashboard')
   const [requests, setRequests] = useState<LetterRequestRow[]>([])
+  const [archived, setArchived] = useState<LetterRequestRow[]>([])
   const [loading, setLoading] = useState(true)
   const [filterStatus, setFilterStatus] = useState('all')
   const [search, setSearch] = useState('')
@@ -48,12 +49,21 @@ export function SekretarisDashboard({ profile }: { profile: UserProfile }) {
 
   const load = () => {
     setLoading(true)
-    supabase
-      .from('letter_requests')
-      .select('*, letter_templates(*), users(name)')
-      .order('created_at', { ascending: false })
-      .then(({ data }) => setRequests((data as any) || []))
-      .finally(() => setLoading(false))
+    Promise.all([
+      supabase
+        .from('letter_requests')
+        .select('*, letter_templates(*), users(name)')
+        .is('archived_at', null)
+        .order('created_at', { ascending: false }),
+      supabase
+        .from('letter_requests')
+        .select('*, letter_templates(*), users(name)')
+        .not('archived_at', 'is', null)
+        .order('archived_at', { ascending: false }),
+    ]).then(([active, arch]) => {
+      setRequests((active.data as any) || [])
+      setArchived((arch.data as any) || [])
+    }).finally(() => setLoading(false))
   }
 
   useEffect(load, [tab])
@@ -176,19 +186,34 @@ export function SekretarisDashboard({ profile }: { profile: UserProfile }) {
     }
   }
 
-  const handleDelete = async (r: LetterRequestRow) => {
+  const handleArchive = async (r: LetterRequestRow) => {
     const name = r.letter_templates?.name || 'surat ini'
-    if (!window.confirm(`Hapus ${name}? Google Docs, PDF, lampiran Drive, dan baris monitoring terkait juga akan dihapus permanen.`)) return
+    if (!window.confirm(`Arsipkan ${name}? Surat bisa di-restore dalam 30 hari sebelum dihapus permanen.`)) return
     setBusyId(r.id)
     try {
-      const { data, error } = await supabase.functions.invoke('delete-surat', { body: { id: r.id } })
-      if (error) throw new Error(await getFunctionErrorMessage(error, 'Gagal menghapus surat.'))
+      const { data, error } = await supabase.functions.invoke('archive-surat', { body: { id: r.id } })
+      if (error) throw new Error(await getFunctionErrorMessage(error, 'Gagal mengarsipkan surat.'))
       if (data?.error) throw new Error(data.error)
       if (detailId === r.id) setDetailId(null)
       load()
-      setResult({ type: 'success', title: 'Surat Dihapus', message: 'Record, Google Docs, PDF, lampiran Drive, dan baris monitoring terkait telah dihapus.' })
+      setResult({ type: 'success', title: 'Surat Diarsipkan', message: `${name} dipindahkan ke arsip. Bisa di-restore dalam 30 hari.` })
     } catch (err: any) {
-      setResult({ type: 'error', title: 'Gagal Menghapus Surat', message: sanitizeErrorMessage(err.message || '', 'Gagal menghapus surat.') })
+      setResult({ type: 'error', title: 'Gagal Mengarsipkan', message: sanitizeErrorMessage(err.message || '', 'Gagal mengarsipkan surat.') })
+    } finally {
+      setBusyId(null)
+    }
+  }
+
+  const handleRestore = async (r: LetterRequestRow) => {
+    setBusyId(r.id)
+    try {
+      const { data, error } = await supabase.functions.invoke('restore-surat', { body: { id: r.id } })
+      if (error) throw new Error(await getFunctionErrorMessage(error, 'Gagal me-restore surat.'))
+      if (data?.error) throw new Error(data.error)
+      load()
+      setResult({ type: 'success', title: 'Surat Di-restore', message: 'Surat kembali ke daftar aktif.' })
+    } catch (err: any) {
+      setResult({ type: 'error', title: 'Gagal Restore', message: sanitizeErrorMessage(err.message || '', 'Gagal me-restore surat.') })
     } finally {
       setBusyId(null)
     }
@@ -198,6 +223,7 @@ export function SekretarisDashboard({ profile }: { profile: UserProfile }) {
     { label: 'Dashboard', icon: Home, active: tab === 'dashboard', onClick: () => setTab('dashboard') },
     { label: 'Monitoring', icon: LayoutGrid, active: tab === 'monitoring', onClick: () => setTab('monitoring') },
     { label: 'Tabel Surat', icon: Table2, active: tab === 'table', onClick: () => setTab('table') },
+    { label: 'Arsip', icon: Archive, active: tab === 'archive', onClick: () => setTab('archive') },
   ]
 
   const markNotifsSeen = () => {
@@ -272,10 +298,12 @@ export function SekretarisDashboard({ profile }: { profile: UserProfile }) {
   return (
     <MainLayout
       profile={profile}
-      title={tab === 'dashboard' ? 'Dashboard Saya' : tab === 'monitoring' ? 'Monitoring Persuratan' : 'Tabel Surat'}
+      title={tab === 'dashboard' ? 'Dashboard Saya' : tab === 'monitoring' ? 'Monitoring Persuratan' : tab === 'table' ? 'Tabel Surat' : 'Arsip Surat'}
       subtitle={
         tab === 'dashboard' ? `Halo, ${profile.name}` :
-        tab === 'monitoring' ? 'Semua request dari seluruh requester' : 'Daftar lengkap seluruh surat'
+        tab === 'monitoring' ? 'Semua request dari seluruh requester' :
+        tab === 'table' ? 'Daftar lengkap seluruh surat' :
+        'Surat diarsipkan — bisa di-restore dalam 30 hari'
       }
       navItems={navItems}
       rightExtra={notifButton}
@@ -395,10 +423,10 @@ export function SekretarisDashboard({ profile }: { profile: UserProfile }) {
                         </>
                       )}
                       {(r.status === 'pending' || r.status === 'revisi') && (
-                        <button onClick={() => handleDelete(r.raw)} disabled={busyId === r.id} title="Hapus surat"
+                        <button onClick={() => handleArchive(r.raw)} disabled={busyId === r.id} title="Arsipkan surat"
                           className="w-8 h-8 rounded-lg flex items-center justify-center disabled:opacity-50"
-                          style={{ background: 'rgba(244,63,94,0.16)', color: '#fb7185' }}>
-                          <Trash2 size={15} />
+                          style={{ background: 'rgba(107,114,128,0.16)', color: 'var(--text-muted)' }}>
+                          <Archive size={15} />
                         </button>
                       )}
                     </div>
@@ -409,7 +437,55 @@ export function SekretarisDashboard({ profile }: { profile: UserProfile }) {
           )}
         </div>
       ) : (
-        <TabelSurat requests={requests} loading={loading} onApprove={handleApprove} onMarkTTD={handleMarkTTD} onRevisi={(id) => setRevisiTargetId(id)} onOpenDetail={setDetailId} onDelete={handleDelete} busyId={busyId} />
+        <TabelSurat requests={requests} loading={loading} onApprove={handleApprove} onMarkTTD={handleMarkTTD} onRevisi={(id) => setRevisiTargetId(id)} onOpenDetail={setDetailId} onArchive={handleArchive} busyId={busyId} />
+      ) : (
+        <div className="page-container">
+          {loading ? (
+            <div className="space-y-3">
+              {[0, 1, 2].map((i) => <div key={i} className="skeleton" style={{ height: 88, borderRadius: 20 }} />)}
+            </div>
+          ) : archived.length === 0 ? (
+            <div className="rounded-3xl border-2 border-dashed p-16 text-center" style={{ borderColor: 'var(--card-border)' }}>
+              <Archive size={40} className="mx-auto mb-4" style={{ color: 'var(--text-muted)' }} />
+              <h3 className="text-[15.5px] font-bold" style={{ color: 'var(--text-primary)' }}>Tidak ada surat diarsipkan</h3>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {archived.map((r) => {
+                const e = enrichRequest(r, true)
+                const archivedAt = new Date(r.archived_at!)
+                const expiryMs = archivedAt.getTime() + 30 * 24 * 60 * 60 * 1000
+                const daysLeft = Math.max(0, Math.ceil((expiryMs - Date.now()) / 86400000))
+                return (
+                  <div key={r.id} className="request-card overflow-hidden opacity-75">
+                    <div className="p-4 flex items-center gap-3">
+                      <KopBadge kop={e.kop} />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-[14.5px] font-bold truncate" style={{ color: 'var(--text-primary)' }}>{e.typeName}</p>
+                        <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
+                          Diajukan oleh <b style={{ color: 'var(--text-secondary)' }}>{e.requesterName}</b> · {e.submittedLabel}
+                        </p>
+                      </div>
+                      <span className="text-[11px] font-bold px-2 py-1 rounded-lg" style={{ background: daysLeft <= 7 ? 'rgba(244,63,94,0.12)' : 'rgba(107,114,128,0.12)', color: daysLeft <= 7 ? '#fb7185' : 'var(--text-muted)' }}>
+                        {daysLeft} hari lagi dihapus
+                      </span>
+                    </div>
+                    <div className="px-4 py-3 flex items-center justify-end border-t gap-2" style={{ background: 'var(--row-bg)', borderColor: 'var(--card-border)' }}>
+                      <button
+                        onClick={() => handleRestore(r)}
+                        disabled={busyId === r.id}
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold disabled:opacity-50"
+                        style={{ background: 'rgba(20,83,45,0.16)', color: '#14532d' }}
+                      >
+                        <RotateCcw size={13} /> Restore
+                      </button>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </div>
       )}
 
       {revisiTargetId && (

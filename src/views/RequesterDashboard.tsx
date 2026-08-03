@@ -42,7 +42,6 @@ export function RequesterDashboardContent({ profile }: { profile: UserProfile })
       supabase
         .from('letter_requests')
         .select('*, letter_templates(*)')
-        .eq('requester_id', profile.id)
         .order('created_at', { ascending: false })
         .then(({ data }) => setRequests((data as any) || [])),
       supabase

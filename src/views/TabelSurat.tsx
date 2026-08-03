@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Search, FileText, Download, Trash2 } from 'lucide-react'
+import { Search, FileText, Download, Archive } from 'lucide-react'
 import { LetterRequestRow, enrichRequest } from '../lib/letterRequests'
 import { kopColor } from '../components/KopBadge'
 import { StatusPill } from '../components/StatusPill'
@@ -12,13 +12,13 @@ interface TabelSuratProps {
   onMarkTTD: (row: LetterRequestRow) => void
   onRevisi: (id: string) => void
   onOpenDetail: (id: string) => void
-  onDelete: (row: LetterRequestRow) => void
+  onArchive: (row: LetterRequestRow) => void
   busyId: string | null
 }
 
 const GRID = '0.85fr 1fr 0.35fr 0.8fr 0.6fr 0.75fr 0.75fr 0.65fr 0.75fr 0.7fr 0.45fr'
 
-export function TabelSurat({ requests, loading, onApprove, onMarkTTD, onRevisi, onOpenDetail, onDelete, busyId }: TabelSuratProps) {
+export function TabelSurat({ requests, loading, onApprove, onMarkTTD, onRevisi, onOpenDetail, onArchive, busyId }: TabelSuratProps) {
   const [search, setSearch] = useState('')
 
   let rows = requests
@@ -114,10 +114,10 @@ export function TabelSurat({ requests, loading, onApprove, onMarkTTD, onRevisi, 
                   {r.status !== 'proses_ttd' && <option value="revisi">Revisi</option>}
                 </select>
                 {(r.status === 'pending' || r.status === 'revisi') && (
-                  <button onClick={() => onDelete(r.raw)} disabled={busyId === r.id} title="Hapus surat"
+                  <button onClick={() => onArchive(r.raw)} disabled={busyId === r.id} title="Arsipkan surat"
                     className="w-9 h-9 rounded-xl border flex items-center justify-center disabled:opacity-50"
-                    style={{ borderColor: '#fb7185', color: '#fb7185', background: 'rgba(244,63,94,0.08)' }}>
-                    <Trash2 size={15} />
+                    style={{ borderColor: 'var(--card-border)', color: 'var(--text-muted)', background: 'rgba(107,114,128,0.08)' }}>
+                    <Archive size={15} />
                   </button>
                 )}
               </div>
@@ -139,7 +139,7 @@ export function TabelSurat({ requests, loading, onApprove, onMarkTTD, onRevisi, 
             className="grid px-5 py-3 border-b"
             style={{ gridTemplateColumns: GRID, borderColor: 'var(--card-border)' }}
           >
-            {['Requester', 'Jenis Surat', 'KOP', 'Diajukan', 'Deadline', 'No. HP PIC', 'Nomor Surat', 'RAW Files', 'Download Files', 'Status', 'Hapus'].map((h) => (
+            {['Requester', 'Jenis Surat', 'KOP', 'Diajukan', 'Deadline', 'No. HP PIC', 'Nomor Surat', 'RAW Files', 'Download Files', 'Status', 'Arsip'].map((h) => (
               <span key={h} className="text-[10.5px] font-extrabold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>{h}</span>
             ))}
           </div>
@@ -201,10 +201,10 @@ export function TabelSurat({ requests, loading, onApprove, onMarkTTD, onRevisi, 
               </span>
               <span onClick={(e) => e.stopPropagation()}>
                 {(r.status === 'pending' || r.status === 'revisi') && (
-                  <button onClick={() => onDelete(r.raw)} disabled={busyId === r.id} title="Hapus surat"
+                  <button onClick={() => onArchive(r.raw)} disabled={busyId === r.id} title="Arsipkan surat"
                     className="w-8 h-8 rounded-lg border flex items-center justify-center disabled:opacity-50"
-                    style={{ borderColor: '#fb7185', color: '#fb7185', background: 'rgba(244,63,94,0.08)' }}>
-                    <Trash2 size={14} />
+                    style={{ borderColor: 'var(--card-border)', color: 'var(--text-muted)', background: 'rgba(107,114,128,0.08)' }}>
+                    <Archive size={14} />
                   </button>
                 )}
               </span>
